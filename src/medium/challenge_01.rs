@@ -24,7 +24,6 @@ mod tests{
     #[test]
     fn test_1() {
         let value = 10u32;
-        let n = 4;
         let items = &[1,2];
         let fixed = FixedTuple::<u32,u8, 4>::new(value, items);
 
@@ -36,7 +35,6 @@ mod tests{
     #[test]
     fn test_2() {
         let value: &'static str = "teste2";
-        let n = 3;
         let items = &[5,6,7,8];
         let fixed = FixedTuple::<&'static str,u8, 3>::new(value, items);
 
