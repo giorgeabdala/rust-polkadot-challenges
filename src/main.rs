@@ -1,3 +1,4 @@
+mod begginer;
 mod medium;
 
 fn main() {

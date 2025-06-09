@@ -1,59 +1,105 @@
+pub trait StorageLike<T> {
+    fn get(&self) -> Option<T>;
+    fn set(&mut self, val: T);
+    fn clear(&mut self);
+}
 
-use parity_scale_codec::Encode;
-use parity_scale_codec::Decode;
+#[derive(Debug)]
+pub struct RAMStorage<T> {
+    value: Option<T>,
+}
 
-#[derive(Encode, Decode, Debug, PartialEq)]
-pub struct FixedTuple<T, U: Default + Copy, const N: usize>(T, [U; N]);
-
-#[allow(dead_code)]
-impl<T, U, const N: usize> FixedTuple<T, U, N>
-    where U: Default + Copy,
-{
-    fn new(value: T, items: &[U]) -> Self {
-        let mut array = [U::default(); N];
-        for (i, &item) in items.iter().take(N).enumerate() {
-                array[i] = item;
-        }
-        FixedTuple(value, array)
+impl<T> RAMStorage<T> {
+    pub fn new() -> Self {
+        RAMStorage { value: None }
     }
 }
 
-mod tests{
-    use parity_scale_codec::{Decode, Encode};
-    use super::FixedTuple;
-    #[test]
-    fn test_1() {
-        let value = 10u32;
-        let items = &[1,2];
-        let fixed = FixedTuple::<u32,u8, 4>::new(value, items);
-
-        assert_eq!(fixed.0, value);
-        assert_eq!(fixed.1, [1u8, 2, 0, 0]);
-
-        println!("{:?}", fixed);
-    }
-    #[test]
-    fn test_2() {
-        let value: &'static str = "teste2";
-        let items = &[5,6,7,8];
-        let fixed = FixedTuple::<&'static str,u8, 3>::new(value, items);
-
-        assert_eq!(fixed.0, value);
-        assert_eq!(fixed.1, [5,6,7]);
+impl<T: Copy> StorageLike<T> for RAMStorage<T> {
+    fn get(&self) -> Option<T> {
+        self.value
     }
 
-    #[test]
-    fn test_3() {
-        let original = FixedTuple::<u32, u8, 3>::new(42, &[9, 9]);
-        let encoded = original.encode();
-        // decodificando:
-        let mut input = &encoded[..];
-        let decoded = FixedTuple::<u32, u8, 3>::decode(&mut input).unwrap();
-        assert_eq!(original, decoded);
+    fn set(&mut self, val: T) {
+        self.value = Some(val);
+    }
 
+    fn clear(&mut self) {
+        self.value = None;
     }
 }
 
-#[allow(dead_code)]
-fn main() {
+pub struct ConstFallback<T> {
+    fixed: T,
+}
+
+impl<T> ConstFallback<T> {
+    pub fn new(value: T) -> Self {
+        ConstFallback { fixed: value }
+    }
+}
+
+impl<T: Copy> StorageLike<T> for ConstFallback<T> {
+    fn get(&self) -> Option<T> {
+        Some(self.fixed)
+    }
+
+    fn set(&mut self, _val: T) {
+        ()
+    }
+
+    fn clear(&mut self) {
+        ()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ram_storage_works() {
+        let mut store = RAMStorage::<u32>::new();
+        assert_eq!(store.get(), None);
+        store.set(99);
+        assert_eq!(store.get(), Some(99));
+        store.clear();
+        assert_eq!(store.get(), None);
+    }
+
+    #[test]
+    fn const_fallback_test() {
+        let mut store = ConstFallback::<u32>::new(100);
+        assert_eq!(store.get(), Some(100));
+        store.set(50);
+        assert_eq!(store.get(), Some(100));
+        store.clear();
+        assert_eq!(store.get(), Some(100));
+    }
+
+    #[test]
+    fn ram_tuple_works() {
+        let mut store = RAMStorage::<(u32, &'static str)>::new();
+        assert_eq!(store.get(), None);
+
+        let tuple_start = (100, "one hundred");
+        store.set(tuple_start);
+        assert_eq!(store.get(), Some(tuple_start));
+
+        let tuple_new = (200, "two hundred");
+        store.set(tuple_new);
+        assert_eq!(store.get(), Some(tuple_new));
+
+        store.clear();
+        assert_eq!(store.get(), None);
+    }
+
+    #[test]
+    fn ram_tuple_destructured_works() {
+        let mut store = RAMStorage::new();
+        store.set((10u32, "ten"));
+        let (n, s) = store.get().unwrap();
+        assert_eq!(n, 10);
+        assert_eq!(s, "ten");
+    }
 }
