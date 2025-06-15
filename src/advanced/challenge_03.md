@@ -135,6 +135,36 @@ impl<Api: CounterRuntimeApi> CounterRpc for CounterRpcImpl<Api> {
 
 ### JSON-RPC Protocol Simulation:
 
+### Project Setup
+
+Before starting, you will need to configure the necessary dependencies:
+
+#### **Cargo.toml:**
+```toml
+[package]
+name = "counter-rpc-challenge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+```
+
+#### **How to configure (choose one option):**
+
+**Option 1 - Using cargo add (recommended):**
+```bash
+cargo add serde --features derive
+cargo add serde_json
+```
+
+**Option 2 - Editing Cargo.toml manually:**
+```bash
+# Edit the Cargo.toml file above and then run:
+cargo build
+```
+
 #### **RPC Request/Response Types:**
 ```rust
 use serde::{Deserialize, Serialize};

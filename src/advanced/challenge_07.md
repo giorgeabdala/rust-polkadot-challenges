@@ -14,11 +14,42 @@ You will implement a system that handles inherent data - mandatory information t
 4. **Block Construction:** How inherents are included during block building
 5. **Validation:** Ensuring inherent data correctness
 
+### Project Setup
+
+Before starting, you will need to configure the necessary dependencies:
+
+#### **Cargo.toml:**
+```toml
+[package]
+name = "inherents-challenge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+```
+
+#### **How to configure (choose one option):**
+
+**Option 1 - Using cargo add (recommended):**
+```bash
+cargo add serde --features derive
+cargo add bincode
+```
+
+**Option 2 - Editing Cargo.toml manually:**
+```bash
+# Edit the Cargo.toml file above and then run:
+cargo build
+```
+
 ### Detailed Structures to Implement:
 
 #### **Inherent Data Types:**
 ```rust
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
 /// Identifier for different types of inherent data
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -43,17 +74,17 @@ impl InherentData {
     }
     
     /// Put inherent data
-    pub fn put_data<T: codec::Encode>(&mut self, identifier: InherentIdentifier, data: &T) -> Result<(), &'static str> {
-        let encoded = data.encode();
+    pub fn put_data<T: Serialize>(&mut self, identifier: InherentIdentifier, data: &T) -> Result<(), &'static str> {
+        let encoded = bincode::serialize(data).map_err(|_| "Failed to encode inherent data")?;
         self.data.insert(identifier, encoded);
         Ok(())
     }
     
     /// Get inherent data
-    pub fn get_data<T: codec::Decode>(&self, identifier: &InherentIdentifier) -> Result<Option<T>, &'static str> {
+    pub fn get_data<T: for<'de> Deserialize<'de>>(&self, identifier: &InherentIdentifier) -> Result<Option<T>, &'static str> {
         match self.data.get(identifier) {
             Some(data) => {
-                match T::decode(&mut &data[..]) {
+                match bincode::deserialize(data) {
                     Ok(decoded) => Ok(Some(decoded)),
                     Err(_) => Err("Failed to decode inherent data"),
                 }
@@ -72,7 +103,18 @@ impl InherentData {
 #### **Timestamp Inherent:**
 ```rust
 /// Timestamp in milliseconds since Unix epoch
-pub type Timestamp = u64;
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Timestamp(pub u64);
+
+impl Timestamp {
+    pub fn now() -> Self {
+        Self(1640995200000) // Simulated timestamp
+    }
+    
+    pub fn as_millis(&self) -> u64 {
+        self.0
+    }
+}
 
 /// Timestamp inherent data provider
 pub struct TimestampInherentDataProvider {
@@ -82,18 +124,12 @@ pub struct TimestampInherentDataProvider {
 impl TimestampInherentDataProvider {
     pub fn new() -> Self {
         Self {
-            timestamp: Self::current_timestamp(),
+            timestamp: Timestamp::now(),
         }
     }
     
     pub fn from_timestamp(timestamp: Timestamp) -> Self {
         Self { timestamp }
-    }
-    
-    /// Get current system timestamp (simulated)
-    fn current_timestamp() -> Timestamp {
-        // In real implementation, this would get actual system time
-        1640995200000 // 2022-01-01 00:00:00 UTC in milliseconds
     }
     
     pub fn timestamp(&self) -> Timestamp {
@@ -128,12 +164,12 @@ impl InherentDataProvider for TimestampInherentDataProvider {
         match timestamp {
             Some(ts) => {
                 // Check if timestamp is reasonable (not too far in past/future)
-                let current = Self::current_timestamp();
+                let current = Timestamp::now();
                 let max_drift = 60_000; // 60 seconds in milliseconds
                 
-                if ts > current + max_drift {
+                if ts.as_millis() > current.as_millis() + max_drift {
                     Err("Timestamp too far in the future")
-                } else if current > ts + max_drift {
+                } else if current.as_millis() > ts.as_millis() + max_drift {
                     Err("Timestamp too far in the past")
                 } else {
                     Ok(())
@@ -148,7 +184,18 @@ impl InherentDataProvider for TimestampInherentDataProvider {
 #### **Block Author Inherent:**
 ```rust
 /// Block author identifier
-pub type AuthorId = u32;
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct AuthorId(pub u32);
+
+impl AuthorId {
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+    
+    pub fn as_u32(&self) -> u32 {
+        self.0
+    }
+}
 
 /// Block author inherent data provider
 pub struct AuthorInherentDataProvider {
@@ -156,8 +203,10 @@ pub struct AuthorInherentDataProvider {
 }
 
 impl AuthorInherentDataProvider {
-    pub fn new(author: AuthorId) -> Self {
-        Self { author }
+    pub fn new(author_id: u32) -> Self {
+        Self { 
+            author: AuthorId::new(author_id)
+        }
     }
     
     pub fn author(&self) -> AuthorId {
