@@ -1,199 +1,160 @@
-## Desafio 1: Pallet Simplificado de Ativos Únicos (NFTs)
+## Challenge 1: Basic Counter Pallet (Fundamentals Review)
 
-**Nível de Dificuldade:** Avançado
+**Difficulty Level:** Advanced
+**Estimated Time:** 2 hours
 
-**Descrição do Objetivo:**
+### Objective Description
 
-Você deve implementar a lógica central de um "pallet" simplificado para gerenciamento de ativos únicos (semelhantes a NFTs). Este pallet permitirá a criação e transferência de ativos, garantindo que cada ativo seja único e tenha um proprietário.
+You will implement a basic counter pallet that simulates the fundamental structure of a FRAME pallet. This challenge serves as a review of essential concepts before moving on to more advanced topics.
 
-**Requisitos Essenciais:**
+The pallet should allow:
+- Incrementing a counter
+- Decrementing a counter (with validation to prevent underflow)
+- Resetting the counter to zero
+- Getting the current counter value
 
-1.  **Estruturas de Dados:**
-    *   `AssetId`: Um tipo para identificar unicamente cada ativo (pode ser um `u32`).
-    *   `AccountId`: Um tipo para identificar proprietários (pode ser um `u32`).
-    *   `AssetDetails`: Uma struct contendo:
-        *   `owner: AccountId`
-        *   `metadata: Vec<u8>` (um vetor de bytes para metadados simples)
-    *   `PalletError`: Um enum para representar os possíveis erros (ex: `AssetAlreadyExists`, `AssetNotFound`, `NotOwner`, `ArithmeticOverflow`).
+**Main Concepts Covered:**
+1. **Basic Pallet Structure:** `Config` trait, storage, calls, events, and errors
+2. **Storage:** Using `StorageValue` to store a single value
+3. **Dispatchable Functions:** Public functions that can be called externally
+4. **Events:** To notify about state changes
+5. **Error Handling:** Custom errors for the pallet
+6. **Weight System:** Basic understanding of transaction weights
 
-2.  **Simulação de Configuração e Storage:**
-    *   Crie uma trait `Config` que defina um tipo associado `MaxMetadataLength` (um `u32`) para limitar o tamanho dos metadados.
-    *   Implemente uma struct `Pallet<T: Config>` que atuará como nosso pallet.
-    *   Dentro de `Pallet<T: Config>`, use `std::collections::HashMap` para simular o armazenamento:
-        *   `assets: HashMap<AssetId, AssetDetails>`: Para armazenar os detalhes de cada ativo.
-        *   `owner_assets: HashMap<AccountId, Vec<AssetId>>`: Para rastrear quais ativos pertencem a cada conta (opcional, mas bom para certas consultas).
+### Detailed Structures to Implement:
 
-3.  **Funcionalidades (Métodos da `Pallet<T: Config>`):**
-    *   `new() -> Self`: Construtor para inicializar o pallet (e seus storages vazios).
-    *   `mint(origin: AccountId, asset_id: AssetId, metadata: Vec<u8>) -> Result<(), PalletError>`:
-        *   Cria um novo ativo com o `asset_id` fornecido e o atribui ao `origin`.
-        *   Verifica se o `asset_id` já existe. Se sim, retorna `PalletError::AssetAlreadyExists`.
-        *   Verifica se o tamanho de `metadata` excede `T::MaxMetadataLength`. Se sim, retorna `PalletError::MetadataTooLong` (adicione este erro ao enum).
-        *   Adiciona o ativo ao storage `assets`.
-        *   (Opcional) Atualiza `owner_assets`.
-    *   `transfer(origin: AccountId, to: AccountId, asset_id: AssetId) -> Result<(), PalletError>`:
-        *   Transfere a propriedade do `asset_id` de `origin` para `to`.
-        *   Verifica se o `asset_id` existe. Se não, retorna `PalletError::AssetNotFound`.
-        *   Verifica se `origin` é o proprietário atual do ativo. Se não, retorna `PalletError::NotOwner`.
-        *   Atualiza o proprietário do ativo em `assets`.
-        *   (Opcional) Atualiza `owner_assets` para ambos, `origin` e `to`.
-    *   `get_asset_owner(asset_id: AssetId) -> Option<AccountId>`:
-        *   Retorna o proprietário do `asset_id`, ou `None` se o ativo não existir.
-    *   `get_asset_metadata(asset_id: AssetId) -> Option<Vec<u8>>`:
-        *   Retorna os metadados do `asset_id`, ou `None` se o ativo não existir.
-
-4.  **Gerenciamento de Memória e Boas Práticas Rust:**
-    *   Preste atenção ao ownership e borrowing, especialmente ao interagir com o `HashMap`.
-    *   Use `Result` e `Option` de forma idiomática.
-    *   Implemente `Debug` para suas structs e enums para facilitar os testes.
-
-**Contexto Teórico:**
-
-*   **Pallets em Substrate:** Pallets são módulos que encapsulam a lógica de negócios de uma blockchain construída com Substrate. Eles definem tipos de dados, armazenamento, funções dispatchable (extrínsecos), eventos e erros. Nosso desafio simplifica essa estrutura. Em um pallet real, você usaria macros como `#[pallet::config]`, `#[pallet::storage]`, `#[pallet::event]`, `#[pallet::error]`, `#[pallet::call]`. Aqui, simularemos a `Config` trait e o armazenamento com `HashMap`.
-*   **`Config` Trait:** Em Substrate, a trait `Config` é usada para parametrizar um pallet, permitindo que ele acesse tipos e constantes definidos pelo runtime que o utiliza. Isso promove a modularidade e a reutilização.
-*   **Storage em Substrate:** O Substrate fornece tipos de armazenamento otimizados (`StorageMap`, `StorageValue`, `StorageDoubleMap`, `StorageNMap`) que são mapeados para uma árvore de Merkle Patricia subjacente. `HashMap` é uma aproximação razoável para este exercício em memória.
-*   **`Option<T>` e `Result<T, E>`:** São fundamentais em Rust para tratamento de valores que podem estar ausentes e para operações que podem falhar, respectivamente. O pattern matching (`match`, `if let`, `while let`) é a forma mais comum de trabalhar com eles.
-    *   Referência `Option`: [https://doc.rust-lang.org/std/option/enum.Option.html](https://doc.rust-lang.org/std/option/enum.Option.html)
-    *   Referência `Result`: [https://doc.rust-lang.org/std/result/enum.Result.html](https://doc.rust-lang.org/std/result/enum.Result.html)
-
-**Testes (coloque isso dentro de um módulo `tests`):**
-
+#### **`Config` Trait:**
 ```rust
-#[cfg(test)]
-mod tests {
-    use super::*; // Importe as definições do seu pallet
+pub trait Config {
+    type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+    type WeightInfo: WeightInfo;
+}
+```
 
-    // Defina uma implementação mock da Config para os testes
-    struct TestConfig;
-    impl Config for TestConfig {
-        const MAX_METADATA_LENGTH: u32 = 64; // Exemplo de limite
+#### **Storage:**
+```rust
+#[pallet::storage]
+#[pallet::getter(fn counter)]
+pub type Counter<T> = StorageValue<_, u32, ValueQuery>;
+```
+
+#### **Events:**
+```rust
+#[pallet::event]
+#[pallet::generate_deposit(pub(super) fn deposit_event)]
+pub enum Event<T: Config> {
+    /// Counter was incremented. [new_value]
+    CounterIncremented { new_value: u32 },
+    /// Counter was decremented. [new_value]
+    CounterDecremented { new_value: u32 },
+    /// Counter was reset to zero.
+    CounterReset,
+}
+```
+
+#### **Errors:**
+```rust
+#[pallet::error]
+pub enum Error<T> {
+    /// Cannot decrement counter below zero
+    CounterUnderflow,
+    /// Counter has reached maximum value
+    CounterOverflow,
+}
+```
+
+#### **Dispatchable Functions:**
+```rust
+#[pallet::call]
+impl<T: Config> Pallet<T> {
+    /// Increment the counter by 1
+    #[pallet::weight(T::WeightInfo::increment())]
+    #[pallet::call_index(0)]
+    pub fn increment(origin: OriginFor<T>) -> DispatchResult {
+        // Implementation here
     }
 
-    type TestPallet = Pallet<TestConfig>;
-
-    #[test]
-    fn initial_state() {
-        let pallet = TestPallet::new();
-        assert_eq!(pallet.get_asset_owner(0), None);
+    /// Decrement the counter by 1
+    #[pallet::weight(T::WeightInfo::decrement())]
+    #[pallet::call_index(1)]
+    pub fn decrement(origin: OriginFor<T>) -> DispatchResult {
+        // Implementation here
     }
 
-    #[test]
-    fn mint_asset_works() {
-        let mut pallet = TestPallet::new();
-        let owner_alice: AccountId = 1;
-        let asset_id_nft: AssetId = 100;
-        let metadata = vec![1, 2, 3];
-
-        assert_eq!(pallet.mint(owner_alice, asset_id_nft, metadata.clone()), Ok(()));
-        assert_eq!(pallet.get_asset_owner(asset_id_nft), Some(owner_alice));
-        assert_eq!(pallet.get_asset_metadata(asset_id_nft), Some(metadata));
-    }
-
-    #[test]
-    fn mint_asset_fails_if_already_exists() {
-        let mut pallet = TestPallet::new();
-        let owner_alice: AccountId = 1;
-        let asset_id_nft: AssetId = 100;
-        let metadata = vec![1, 2, 3];
-
-        pallet.mint(owner_alice, asset_id_nft, metadata.clone()).unwrap();
-        assert_eq!(
-            pallet.mint(owner_alice, asset_id_nft, metadata),
-            Err(PalletError::AssetAlreadyExists)
-        );
-    }
-
-    #[test]
-    fn mint_asset_fails_if_metadata_too_long() {
-        let mut pallet = TestPallet::new();
-        let owner_alice: AccountId = 1;
-        let asset_id_nft: AssetId = 101;
-        let long_metadata = vec![0u8; (TestConfig::MAX_METADATA_LENGTH + 1) as usize];
-
-        assert_eq!(
-            pallet.mint(owner_alice, asset_id_nft, long_metadata),
-            Err(PalletError::MetadataTooLong)
-        );
-    }
-
-    #[test]
-    fn transfer_asset_works() {
-        let mut pallet = TestPallet::new();
-        let owner_alice: AccountId = 1;
-        let owner_bob: AccountId = 2;
-        let asset_id_nft: AssetId = 100;
-        let metadata = vec![1, 2, 3];
-
-        pallet.mint(owner_alice, asset_id_nft, metadata).unwrap();
-        assert_eq!(pallet.transfer(owner_alice, owner_bob, asset_id_nft), Ok(()));
-        assert_eq!(pallet.get_asset_owner(asset_id_nft), Some(owner_bob));
-    }
-
-    #[test]
-    fn transfer_asset_fails_if_not_owner() {
-        let mut pallet = TestPallet::new();
-        let owner_alice: AccountId = 1;
-        let owner_bob: AccountId = 2;
-        let hacker_charlie: AccountId = 3;
-        let asset_id_nft: AssetId = 100;
-        let metadata = vec![1, 2, 3];
-
-        pallet.mint(owner_alice, asset_id_nft, metadata).unwrap();
-        assert_eq!(
-            pallet.transfer(hacker_charlie, owner_bob, asset_id_nft),
-            Err(PalletError::NotOwner)
-        );
-    }
-
-    #[test]
-    fn transfer_asset_fails_if_asset_not_found() {
-        let mut pallet = TestPallet::new();
-        let owner_alice: AccountId = 1;
-        let owner_bob: AccountId = 2;
-        let non_existent_asset_id: AssetId = 999;
-
-        assert_eq!(
-            pallet.transfer(owner_alice, owner_bob, non_existent_asset_id),
-            Err(PalletError::AssetNotFound)
-        );
-    }
-    
-    // (Opcional) Testes para owner_assets, se implementado
-    #[test]
-    fn owner_assets_tracking_works_on_mint_and_transfer() {
-        let mut pallet = TestPallet::new();
-        let alice: AccountId = 1;
-        let bob: AccountId = 2;
-        let asset1: AssetId = 101;
-        let asset2: AssetId = 102;
-
-        // Mint
-        pallet.mint(alice, asset1, vec![1]).unwrap();
-        pallet.mint(alice, asset2, vec![2]).unwrap();
-        
-        // Verifique se owner_assets_of existe e se os ativos estão lá
-        // Esta é uma sugestão, você precisará de uma função como `get_assets_by_owner`
-        // ou tornar owner_assets público para teste (menos ideal)
-        // Por agora, vamos assumir que você adicionará uma função auxiliar ou testará indiretamente.
-        // Se você adicionou owner_assets, este teste é um bom lugar para verificá-lo.
-        // Exemplo: assert_eq!(pallet.get_assets_by_owner(alice), Some(vec![asset1, asset2]));
-
-        // Transfer
-        pallet.transfer(alice, bob, asset1).unwrap();
-        // Exemplo: assert_eq!(pallet.get_assets_by_owner(alice), Some(vec![asset2]));
-        // Exemplo: assert_eq!(pallet.get_assets_by_owner(bob), Some(vec![asset1]));
-        
-        // Para este teste passar como está, sem uma função `get_assets_by_owner`,
-        // você pode apenas garantir que o código compila e, na sua análise,
-        // pode verificar manualmente se a lógica de owner_assets foi implementada.
-        // Para uma verificação real, uma função getter seria necessária.
-        assert!(true, "Implementar verificações para owner_assets se a funcionalidade foi adicionada");
+    /// Reset counter to zero
+    #[pallet::weight(T::WeightInfo::reset())]
+    #[pallet::call_index(2)]
+    pub fn reset(origin: OriginFor<T>) -> DispatchResult {
+        // Implementation here
     }
 }
 ```
 
-**Output Esperado:**
+#### **Weight Information:**
+```rust
+pub trait WeightInfo {
+    fn increment() -> Weight;
+    fn decrement() -> Weight;
+    fn reset() -> Weight;
+}
 
-Seu código deve compilar sem erros e todos os testes fornecidos devem passar. As funções devem se comportar conforme especificado nos requisitos.
+impl WeightInfo for () {
+    fn increment() -> Weight {
+        Weight::from_parts(10_000, 0)
+    }
+    fn decrement() -> Weight {
+        Weight::from_parts(10_000, 0)
+    }
+    fn reset() -> Weight {
+        Weight::from_parts(10_000, 0)
+    }
+}
+```
 
----
+### Implementation Requirements:
+
+1. **`increment()`:**
+   - Check for overflow before incrementing
+   - Update storage
+   - Emit `CounterIncremented` event
+   - Return `Ok(())`
+
+2. **`decrement()`:**
+   - Check if counter is greater than 0
+   - If zero, return `Error::<T>::CounterUnderflow`
+   - Update storage
+   - Emit `CounterDecremented` event
+
+3. **`reset()`:**
+   - Set counter to 0
+   - Emit `CounterReset` event
+
+### Tests
+
+Create a test module with the following scenarios:
+- **Successful increment:** Verify counter increases and event is emitted
+- **Successful decrement:** Verify counter decreases and event is emitted
+- **Underflow prevention:** Verify error when trying to decrement from 0
+- **Reset functionality:** Verify counter resets to 0 and event is emitted
+- **Multiple operations:** Test sequence of operations
+
+### Expected Output
+
+A complete FRAME pallet implementation that:
+- Compiles without errors
+- Passes all unit tests
+- Follows FRAME conventions and best practices
+- Demonstrates proper error handling and event emission
+
+### Theoretical Context
+
+This challenge reviews fundamental FRAME concepts:
+
+- **Pallet Structure:** Every FRAME pallet follows a standard structure with `Config`, storage, calls, events, and errors
+- **Storage:** `StorageValue` is used for single values, while `StorageMap` is for key-value pairs
+- **Dispatchable Functions:** Functions marked with `#[pallet::call]` can be called from outside the runtime
+- **Events:** Used to notify external systems about state changes
+- **Weights:** Every dispatchable function must specify its computational cost
+- **Error Handling:** Custom errors provide clear feedback about operation failures
+
+This foundation is essential for understanding more complex FRAME concepts in subsequent challenges.
