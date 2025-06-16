@@ -13,6 +13,33 @@ By completing this challenge, you will understand:
 - Benchmarking code performance
 - Test-driven development practices
 
+## Dependencies Setup
+
+This challenge uses mostly built-in Rust testing features, but for advanced benchmarking you'll need:
+
+#### **Option 1 - Quick Setup:**
+```bash
+# Add benchmarking dependency (dev-dependency)
+cargo add --dev criterion --features html_reports
+```
+
+#### **Option 2 - Manual Cargo.toml:**
+```toml
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "account_benchmark"
+harness = false
+```
+
+After adding dependencies:
+```bash
+cargo check  # Verify dependencies are correctly installed
+```
+
+**Note:** Most of this challenge uses built-in `#[test]` and `///` documentation features. The `criterion` dependency is only needed for the advanced benchmarking section.
+
 ## Background
 
 Testing and documentation are crucial for maintainable software:

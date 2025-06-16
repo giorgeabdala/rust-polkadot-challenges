@@ -13,6 +13,29 @@ By completing this challenge, you will understand:
 - Error handling in async contexts
 - Common async patterns and pitfalls
 
+## Dependencies Setup
+
+Before starting this challenge, you will need to configure the necessary dependencies for async programming:
+
+#### **Option 1 - Quick Setup:**
+```bash
+# Add async dependencies to your Cargo.toml
+cargo add tokio --features full
+cargo add futures
+```
+
+#### **Option 2 - Manual Cargo.toml:**
+```toml
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+```
+
+After adding dependencies:
+```bash
+cargo check  # Verify dependencies are correctly installed
+```
+
 ## Background
 
 Asynchronous programming enables efficient I/O operations without blocking threads. Key concepts:
