@@ -66,7 +66,7 @@ pub trait CounterRpc {
 ```
 
 #### **Runtime API Bridge:**
-```rust
+    ```rust
 /// Bridge between RPC and runtime
 pub trait CounterRuntimeApi {
     fn get_counter_value(&self, name: String) -> Option<u32>;
@@ -96,7 +96,7 @@ impl CounterRuntimeApi for MockRuntimeApi {
 ```
 
 #### **RPC Implementation:**
-```rust
+    ```rust
 pub struct CounterRpcImpl<Api> {
     runtime_api: Api,
 }

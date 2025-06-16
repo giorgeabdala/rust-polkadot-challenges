@@ -112,7 +112,7 @@ impl WeightInfo for DefaultWeightInfo {
 ```
 
 #### **Main Pallet:**
-```rust
+        ```rust
 pub struct Pallet<T: Config> {
     storage: Storage,
     events: Vec<T::Event>,

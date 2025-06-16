@@ -182,7 +182,7 @@ impl InherentDataProvider for TimestampInherentDataProvider {
 ```
 
 #### **Block Author Inherent:**
-```rust
+    ```rust
 /// Block author identifier
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct AuthorId(pub u32);
@@ -237,7 +237,7 @@ impl InherentDataProvider for AuthorInherentDataProvider {
 ### Inherent Processing System:
 
 #### **Inherent Data Manager:**
-```rust
+    ```rust
 pub struct InherentDataManager {
     providers: Vec<Box<dyn InherentDataProvider>>,
 }
@@ -281,9 +281,9 @@ impl InherentDataManager {
             InherentIdentifier::TIMESTAMP,
             InherentIdentifier::BLOCK_AUTHOR,
         ]
-    }
-}
-```
+            }
+        }
+        ```
 
 #### **Block Construction with Inherents:**
 ```rust

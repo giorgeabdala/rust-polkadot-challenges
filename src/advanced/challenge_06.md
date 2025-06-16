@@ -68,7 +68,7 @@ impl DataPoint {
 ```
 
 #### **Simulated Data Source:**
-```rust
+    ```rust
 pub trait DataSource {
     fn name(&self) -> &str;
     fn fetch_data(&mut self) -> Result<Vec<DataPoint>, DataSourceError>;
@@ -157,12 +157,12 @@ impl DataSource for MockDataSource {
     
     fn is_available(&self) -> bool {
         true
+        }
     }
-}
-```
+    ```
 
 #### **Cache System:**
-```rust
+    ```rust
 pub struct DataCache {
     cache: HashMap<String, DataPoint>,
     max_age_seconds: u64,

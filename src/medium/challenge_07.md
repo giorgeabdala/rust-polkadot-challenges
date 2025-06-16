@@ -1,176 +1,290 @@
-# Challenge 7: Task Manager with Simulated Storage and Advanced Filtering (English Version in Code)
+# Challenge 7: Macros and Metaprogramming
 
-**Difficulty Level:** Intermediate Plus
+**Estimated Time:** 50 minutes  
+**Difficulty:** Medium  
+**Topics:** Declarative Macros, Procedural Macros, Code Generation, Macro Patterns
 
-## Objective Description:
-You will implement a task management system. Tasks will have an ID, description, and status. The system should allow:
+## Learning Objectives
 
-*   Adding new tasks (the ID must be generated automatically).
-*   Getting a specific task by its ID. The reference to the obtained task must have a lifetime linked to the task manager.
-*   Updating the status of an existing task.
-*   Listing tasks using a closure as a predicate for filtering. The references to the listed tasks must also have managed lifetimes.
-*   Removing a task.
+By completing this challenge, you will understand:
+- Declarative macros with `macro_rules!`
+- Pattern matching in macros
+- Repetition and recursion in macros
+- Procedural macro concepts
+- Code generation and metaprogramming patterns
 
-To simulate storage (like Substrate's `StorageMap` or `StorageValue`), you will define a `KeyValueStorage<K, V>` trait and an in-memory implementation `InMemoryStorage<K, V>`. The `TaskManager` will be generic over this storage trait.
+## Background
 
-## Rust Concepts to be Applied (Substrate focus):
+Macros enable code generation at compile time, providing:
+- **Zero-cost abstractions**: Generated code has no runtime overhead
+- **DRY principle**: Reduce code duplication
+- **Domain-specific languages**: Create custom syntax
+- **Compile-time computation**: Generate code based on input
 
-*   **Structs:** `Task`, `TaskId`, `TaskManager`.
-*   **Enum:** `TaskStatus` (e.g., `Pending`, `InProgress`, `Completed`).
-*   **Traits:** `KeyValueStorage<K, V>` to abstract the storage mechanism.
-*   **Generics:** `TaskManager<S: KeyValueStorage<TaskId, Task>>` to allow different storage implementations.
-*   **Lifetimes (`'a`)**: Essential when returning references to "stored" data, ensuring they do not outlive the `TaskManager` or the `Storage` they originate from.
-*   **Storage (Simulated):** The `InMemoryStorage` will use a `HashMap` internally. Methods like `get`, `get_mut`, `set`, `remove` will simulate storage interactions.
-*   **Matching:** To handle `Option<T>` (when fetching tasks) and `Result<T, E>` (in operations that can fail).
-*   **Vectors (`Vec<T>`):** For lists of tasks and IDs.
-*   **Closures:**
-    *   To provide custom filtering logic (`list_tasks_by_filter_closure`).
-*   **Error Handling:** Use `Result<T, String>` to return descriptive errors.
+Substrate uses macros extensively for pallets, storage, and runtime configuration.
 
-## Focused Data Structures and Concepts (As Requested):
+## Challenge
 
-*   **Lifetimes:** Mainly when obtaining task references from "storage".
-*   **Storage (simulated):** Through the `KeyValueStorage` trait and its `InMemoryStorage` implementation.
-*   **Traits/Generics:** In the definition of `KeyValueStorage` and `TaskManager`.
-*   **Structs/Enum:** For `Task`, `TaskId`, `TaskStatus`.
-*   **Matching:** On `Option` and `Result`.
-*   **Vectors:** For collections.
-*   **Closures:** For filtering.
+Create a macro system for generating blockchain storage and event types.
 
-## Initial Definitions (skeleton for you to start with):
+### Requirements
+
+1. **Create a `storage!` declarative macro** that generates storage structs:
+   ```rust
+   macro_rules! storage {
+       (
+           $(#[$meta:meta])*
+           $vis:vis struct $name:ident {
+               $(
+                   $(#[$field_meta:meta])*
+                   $field_name:ident: $field_type:ty = $default:expr,
+               )*
+           }
+       ) => {
+           // Generate storage struct with getters/setters
+       };
+   }
+   ```
+
+2. **Create an `event!` macro** for generating event enums:
+   ```rust
+   macro_rules! event {
+       (
+           $(#[$meta:meta])*
+           $vis:vis enum $name:ident {
+               $(
+                   $(#[$variant_meta:meta])*
+                   $variant:ident $({ $($field:ident: $field_type:ty),* })?,
+               )*
+           }
+       ) => {
+           // Generate event enum with emit functionality
+       };
+   }
+   ```
+
+3. **Create a `pallet!` macro** that combines storage and events:
+   ```rust
+   macro_rules! pallet {
+       (
+           name: $pallet_name:ident,
+           storage: {
+               $($storage_items:tt)*
+           },
+           events: {
+               $($event_items:tt)*
+           },
+           calls: {
+               $($call_items:tt)*
+           }
+       ) => {
+           // Generate complete pallet structure
+       };
+   }
+   ```
+
+4. **Create utility macros:**
+   - `impl_getter!` for generating getter methods
+   - `impl_setter!` for generating setter methods
+   - `count_items!` for counting macro arguments
+   - `generate_id!` for creating unique identifiers
+
+### Expected Behavior
 
 ```rust
-use std::collections::HashMap;
-use std::hash::Hash;
-use std::borrow::Borrow; // Might be useful
-
-// --- Task ID ---
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
-pub struct TaskId(u32);
-
-impl TaskId {
-fn new(id: u32) -> Self {
-TaskId(id)
-}
-}
-
-// --- Task Status ---
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-pub enum TaskStatus {
-Pending,
-InProgress,
-Completed,
+// Storage generation
+storage! {
+    /// Account storage for the pallet
+    pub struct AccountStorage {
+        /// Account balances
+        balances: HashMap<u32, u64> = HashMap::new(),
+        /// Total supply
+        total_supply: u64 = 0,
+        /// Next account ID
+        next_id: u32 = 1,
+    }
 }
 
-// --- Task ---
-#[derive(Debug, Clone, PartialEq)] // Eq removed as String is not trivially Eq without manual impl
-pub struct Task {
-pub id: TaskId,
-pub description: String,
-pub status: TaskStatus,
+// Event generation
+event! {
+    /// Events emitted by the pallet
+    pub enum PalletEvent {
+        /// Account created
+        AccountCreated { id: u32, initial_balance: u64 },
+        /// Transfer completed
+        Transfer { from: u32, to: u32, amount: u64 },
+        /// Account balance updated
+        BalanceUpdated { id: u32, new_balance: u64 },
+    }
 }
 
-impl Task {
-fn new(id: TaskId, description: String) -> Self {
-Task {
-id,
-description,
-status: TaskStatus::Pending,
+// Usage
+let mut storage = AccountStorage::new();
+storage.set_total_supply(1000000);
+assert_eq!(storage.get_total_supply(), 1000000);
+
+let event = PalletEvent::AccountCreated { id: 1, initial_balance: 100 };
+event.emit();
+```
+
+## Advanced Requirements
+
+1. **Create a `derive_codec!` macro** for automatic serialization:
+   ```rust
+   macro_rules! derive_codec {
+       ($($type:ty),*) => {
+           $(
+               impl Encode for $type {
+                   // Generated encode implementation
+               }
+               
+               impl Decode for $type {
+                   // Generated decode implementation
+               }
+           )*
+       };
+   }
+   ```
+
+2. **Create a `benchmark!` macro** for performance testing:
+   ```rust
+   macro_rules! benchmark {
+       (
+           $name:ident: $setup:block => $code:block
+       ) => {
+           fn $name() {
+               $setup
+               let start = std::time::Instant::now();
+               $code
+               let duration = start.elapsed();
+               println!("{}: {:?}", stringify!($name), duration);
+           }
+       };
+   }
+   ```
+
+3. **Create recursive macros:**
+   ```rust
+   macro_rules! count_tts {
+       () => { 0 };
+       ($head:tt $($tail:tt)*) => { 1 + count_tts!($($tail)*) };
+   }
+   
+   macro_rules! reverse_list {
+       ([] $($reversed:tt)*) => { ($($reversed)*) };
+       ([$head:tt $($tail:tt)*] $($reversed:tt)*) => {
+           reverse_list!([$($tail)*] $head $($reversed)*)
+       };
+   }
+   ```
+
+## Testing
+
+Write tests that demonstrate:
+- Macro expansion with different inputs
+- Generated code functionality
+- Error handling in macros
+- Recursive macro behavior
+- Integration between different macros
+
+```rust
+#[test]
+fn test_storage_macro() {
+    storage! {
+        pub struct TestStorage {
+            value: u32 = 42,
+            name: String = "test".to_string(),
+        }
+    }
+    
+    let mut storage = TestStorage::new();
+    assert_eq!(storage.get_value(), 42);
+    
+    storage.set_value(100);
+    assert_eq!(storage.get_value(), 100);
 }
-}
-}
 
-// --- Key-Value Storage Trait (Simulating StorageMap/StorageValue) ---
-pub trait KeyValueStorage<K: Eq + Hash, V> {
-fn get(&self, key: &K) -> Option<&V>;
-fn get_mut(&mut self, key: &K) -> Option<&mut V>;
-fn set(&mut self, key: K, value: V) -> Result<(), String>; // Error as String
-fn remove(&mut self, key: &K) -> Option<V>; // Key as reference for removal
-fn get_all_values(&self) -> Vec<&V>; // To list all tasks
-// fn get_all_entries(&self) -> Vec<(&K, &V)>; // Optional, if you need keys and values
-}
-
-// --- In-Memory Storage Implementation ---
-pub struct InMemoryStorage<K: Eq + Hash + Clone, V> { // K needs to be Clone for some operations
-data: HashMap<K, V>,
-}
-
-impl<K: Eq + Hash + Clone, V> InMemoryStorage<K, V> {
-pub fn new() -> Self {
-InMemoryStorage {
-data: HashMap::new(),
-}
-}
-}
-
-impl<K: Eq + Hash + Clone, V> Default for InMemoryStorage<K, V> {
-fn default() -> Self {
-Self::new()
-}
-}
-
-// TODO: Implement KeyValueStorage for InMemoryStorage
-
-// --- Task Manager ---
-pub struct TaskManager<S: KeyValueStorage<TaskId, Task>> {
-storage: S,
-next_id: u32,
-}
-
-// TODO: Implement methods for TaskManager:
-// new()
-// add_task(&mut self, description: String) -> TaskId
-// get_task<'a>(&'a self, id: &TaskId) -> Option<&'a Task> // Note the lifetime 'a
-// update_task_status(&mut self, id: &TaskId, new_status: TaskStatus) -> Result<(), String>
-// list_tasks_by_filter_closure<'storage_lifetime, P>(&'storage_lifetime self, predicate: P) -> Vec<&'storage_lifetime Task>
-//   where P: Fn(&&Task) -> bool, S: 'storage_lifetime // or S: KeyValueStorage<TaskId, Task> + 'storage_lifetime
-// remove_task(&mut self, id: &TaskId) -> Result<Task, String>
-
-
-// --- Tests ---
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn add_task_test() {}
-
-    #[test]
-    fn get_task_test() {}
-
-    #[test]
-    fn update_status_test() {}
-
-    #[test]
-    fn update_status_nonexistent_task_fail() {}
-
-    #[test]
-    fn test_list_tasks_with_closure_filter() {}
-
-    #[test]
-    fn remove_task_test() {}
-
-    #[test]
-    fn remove_nonexistent_task_test() {}
-
-    #[test]
-    fn test_lifetimes_on_get_task() {}
+#[test]
+fn test_event_macro() {
+    event! {
+        pub enum TestEvent {
+            Simple,
+            WithData { value: u32 },
+        }
+    }
+    
+    let event = TestEvent::WithData { value: 123 };
+    // Test event emission
 }
 ```
 
-## Theoretical Context:
+## Macro Patterns
 
-*   **Lifetimes (`'a`):** In Rust, lifetimes ensure that references never point to invalid memory. When a function returns a reference to data it "owns" or manages (like `TaskManager` managing `Tasks` in its storage), the lifetime of this reference must be explicitly linked to the lifetime of the structure that holds the data. For example, in `get_task<'a>(&'a self, id: &TaskId) -> Option<&'a Task>`. This tells the compiler that the referenced `Task` cannot outlive the `TaskManager` (`self`).
+1. **Pattern Matching:**
+   ```rust
+   macro_rules! match_type {
+       (u32) => { "unsigned 32-bit integer" };
+       (String) => { "string type" };
+       ($other:ty) => { "other type" };
+   }
+   ```
 
-*   **Simulated Storage:** In Substrate, `#[pallet::storage]` defines storage items that are persisted on the blockchain. `StorageValue<T>` stores a single value, while `StorageMap<K, V>` stores a map. They use SCALE encoding and interact with a database backend (RocksDB/ParityDB). Our `KeyValueStorage` and `InMemoryStorage` are a very simplified simulation to practice Rust concepts. `get_mut` is conceptually similar to `StorageMap::mutate` or `StorageValue::mutate`, which allow modifying the value in place.
+2. **Repetition:**
+   ```rust
+   macro_rules! create_functions {
+       ($($name:ident),*) => {
+           $(
+               fn $name() {
+                   println!("Function {}", stringify!($name));
+               }
+           )*
+       };
+   }
+   ```
 
-*   **Traits and Generics:** Allow writing abstract and reusable code. `KeyValueStorage` defines a contract, and `TaskManager` can use any `S` that satisfies this contract. This is fundamental in Substrate's pallet architecture (e.g., `Config` trait).
+3. **Conditional Generation:**
+   ```rust
+   macro_rules! maybe_impl {
+       ($type:ty, true) => {
+           impl Display for $type {
+               fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+                   write!(f, "{:?}", self)
+               }
+           }
+       };
+       ($type:ty, false) => {};
+   }
+   ```
 
-*   **Closures:** Are anonymous functions that can capture variables from the environment where they are defined. They are incredibly powerful for passing behavior as an argument.
-    *   `Fn`: Captures by immutable reference.
-    *   `FnMut`: Captures by mutable reference.
-    *   `FnOnce`: Captures by value (consumes the captured variables).
-        In this challenge, you will use `Fn` for filter predicates, as they only read task data to decide if it should be included in the result, without modifying the task or the closure's environment mutably.
+## Tips
 
-## Expected Output:
-A functional implementation of the `TODOs`, with passing tests (you will need to write the tests too!). The code should compile without lifetime warnings and demonstrate the correct use of the requested concepts.
+- Use `cargo expand` to see macro expansions
+- Start with simple patterns and build complexity
+- Use `$crate::` for hygiene in library macros
+- Test macros with various input patterns
+- Consider error messages for invalid macro usage
+
+## Key Learning Points
+
+- **Macro Syntax**: Understanding token trees and patterns
+- **Code Generation**: Creating repetitive code programmatically
+- **Hygiene**: Avoiding variable name conflicts
+- **Debugging**: Techniques for debugging macro expansions
+- **Performance**: Compile-time vs runtime trade-offs
+
+## Substrate Connection
+
+Substrate's macro usage:
+- `#[pallet::pallet]` for pallet definition
+- `#[pallet::storage]` for storage items
+- `#[pallet::event]` for event definitions
+- `#[pallet::call]` for dispatchable functions
+- `construct_runtime!` for runtime composition
+
+## Bonus Challenges
+
+1. Create a `state_machine!` macro for generating state transitions
+2. Implement a `sql!` macro for compile-time SQL validation
+3. Create a `config!` macro for configuration management
+4. Build a `test_suite!` macro for generating test cases
+5. Implement a `derive_storage!` procedural macro (conceptually)

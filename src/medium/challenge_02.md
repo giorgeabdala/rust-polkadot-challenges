@@ -1,47 +1,137 @@
-```markdown
-# Challenge 2 
-**Difficulty Level:** Intermediate  
+# Challenge 2: Generics and Traits
 
-## Title: “FixedTuple” – Generic Structure with Tuple and Array  
+**Estimated Time:** 45 minutes  
+**Difficulty:** Medium  
+**Topics:** Generic Types, Trait Bounds, Associated Types, Default Implementations
 
-### Objective  
-Create a generic tuple-struct in Rust that combines:  
-1. A value of type `T` (any type that implements `Clone`).  
-2. A fixed-size array of `U` with length `N` (const generic), where `U: Default + Copy`.  
+## Learning Objectives
 
-### Implement a constructor  
+By completing this challenge, you will understand:
+- Generic type parameters and constraints
+- Trait bounds and where clauses
+- Associated types vs generic parameters
+- Default trait implementations
+- Generic trait objects
+
+## Background
+
+Generics and traits are Rust's primary abstraction mechanisms. They enable:
+- **Code reuse** without runtime cost (zero-cost abstractions)
+- **Type safety** with compile-time guarantees
+- **Flexible APIs** that work with multiple types
+- **Trait bounds** to constrain generic behavior
+
+This is essential for Substrate development where generic pallets work with different runtime configurations.
+
+## Challenge
+
+Create a generic storage system that can work with different data types and serialization formats.
+
+### Requirements
+
+1. **Create a `Serializable` trait** with:
+   - `fn serialize(&self) -> Vec<u8>`
+   - `fn deserialize(data: &[u8]) -> Result<Self, String>` where `Self: Sized`
+   - Default implementation for `fn size_hint(&self) -> usize { 0 }`
+
+2. **Create a generic `Storage<T>` struct** where `T: Serializable + Clone`:
+   - `items: Vec<T>`
+   - `capacity: usize`
+
+3. **Implement methods for `Storage<T>`:**
+   - `new(capacity: usize) -> Self`
+   - `store(&mut self, item: T) -> Result<usize, String>` (returns index)
+   - `retrieve(&self, index: usize) -> Option<&T>`
+   - `update(&mut self, index: usize, item: T) -> Result<(), String>`
+   - `remove(&mut self, index: usize) -> Option<T>`
+   - `len(&self) -> usize`
+   - `is_full(&self) -> bool`
+
+4. **Create a `Cacheable` trait** that extends `Serializable`:
+   - `fn cache_key(&self) -> String`
+   - `fn is_expired(&self) -> bool`
+
+5. **Implement `Serializable` for basic types:**
+   - `String`
+   - `u32`
+   - A custom `User` struct
+
+### Expected Behavior
+
 ```rust
-fn new(value: T, items: &[U]) -> Self
-```  
-This function should copy up to `N` elements from `items` to the internal array.  
-If `items.len() < N`, the remaining elements should be filled with `U::default()`.  
-If `items.len() > N`, the excess should be ignored.
+// Generic storage works with any Serializable type
+let mut string_storage: Storage<String> = Storage::new(10);
+let mut number_storage: Storage<u32> = Storage::new(5);
 
-### Additionally:
-- Derive `parity_scale_codec::Encode`, `parity_scale_codec::Decode`, and `scale_info::TypeInfo` for the struct.
-- Ensure the generic type `T` also implements `Encode + Decode + TypeInfo`.
+// Store different types
+let idx1 = string_storage.store("Hello".to_string())?;
+let idx2 = number_storage.store(42)?;
 
-### Tests
-In the same file, add a test module with at least the following scenarios:
-1. T = `u32`, U = `u8`, N = 4, items = `&[1, 2]` → array should be `[1, 2, 0, 0]`.
-2. T = `&'static str`, U = `u8`, N = 3, items = `&[5, 6, 7, 8]` → array = `[5, 6, 7]`.
-3. SCALE round-trip: encode and decode your struct, then compare for equality.
+// Retrieve with type safety
+let text = string_storage.retrieve(idx1).unwrap();
+let number = number_storage.retrieve(idx2).unwrap();
 
-### Expected Output
-When running `cargo test`, all tests should pass and show that:
-```text
-FixedTuple(42, [1, 2, 0, 0])
-FixedTuple("hey", [5, 6, 7])
-```  
-can be successfully encoded and decoded with no errors.
+// Works with custom types
+let mut user_storage: Storage<User> = Storage::new(100);
+let user = User { id: 1, name: "Alice".to_string() };
+let user_idx = user_storage.store(user)?;
+```
 
-### Theoretical Context
-- **Generics and `const N: usize`:** allow flexible types and compile-time array sizes.
-- **Tuple-struct:** syntax like `struct Name<T, …>(T, [U; N]);` — combines a value and inlined array.
-- **Trait bounds (`U: Default + Copy`, `T: Clone + Encode + Decode + TypeInfo`):** ensure required behavior.
-- **Derive `Encode`, `Decode` (crate `parity-scale-codec`) and `TypeInfo` (crate `scale-info`)**: provide implementations for (de)serialization and runtime type introspection, standard practice in FRAME pallets.
-- **Further reading:**
-    - parity-scale-codec: https://crates.parity.io/parity_scale_codec/
-    - scale-info: https://docs.rs/scale-info/latest/scale_info/
+## Testing
+
+Write tests that demonstrate:
+- Generic storage with different types
+- Trait bound enforcement at compile time
+- Serialization/deserialization round trips
+- Storage capacity limits
+- Default trait implementations
+
+## Advanced Requirements
+
+1. **Create a `CachedStorage<T>` struct** where `T: Cacheable`:
+   - Extends basic storage with caching logic
+   - Automatically removes expired items
+   - Implements cache key-based lookup
+
+2. **Add trait bounds using `where` clauses:**
+   ```rust
+   impl<T> Storage<T> 
+   where 
+       T: Serializable + Clone + PartialEq,
+   {
+       fn find(&self, item: &T) -> Option<usize> {
+           // Implementation
+       }
+   }
+   ```
+
+## Tips
+
+- Use `#[derive(Clone)]` for simple types
+- Implement `Serializable` using `serde` concepts (but manually)
+- Use `Box<dyn Trait>` for trait objects when needed
+- Remember that generic functions are monomorphized at compile time
+
+## Key Learning Points
+
+- **Zero-Cost Abstractions**: Generics have no runtime overhead
+- **Trait Bounds**: Constraining generic types with required behavior
+- **Associated Types**: When to use them vs generic parameters
+- **Coherence Rules**: Why Rust's trait system prevents conflicts
+
+## Substrate Connection
+
+This mirrors Substrate's architecture:
+- `Config` trait with associated types for runtime configuration
+- Generic pallets that work with different `Config` implementations
+- Storage traits like `StorageMap<K, V>` and `StorageValue<V>`
+- Codec trait for serialization (similar to our `Serializable`)
+
+## Bonus Challenges
+
+1. Add a `Queryable` trait with generic query methods
+2. Implement a generic `Index<T>` trait for different indexing strategies
+3. Create a `StorageProvider` trait that abstracts storage backends
+4. Add generic error types with associated type bounds
 
 ---

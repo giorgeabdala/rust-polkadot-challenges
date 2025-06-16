@@ -17,7 +17,7 @@ You will implement a pallet with custom origins that demonstrates how to create 
 ### Detailed Structures to Implement:
 
 #### **Custom Origin Definition:**
-```rust
+    ```rust
 /// Custom origins for the pallet
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Origin {
@@ -48,7 +48,7 @@ impl Origin {
 ```
 
 #### **Pallet Configuration:**
-```rust
+    ```rust
 pub trait Config {
     type RuntimeOrigin: From<Origin>;
     type AccountId: Clone + PartialEq + core::fmt::Debug;
@@ -66,8 +66,8 @@ pub struct Pallet<T: Config> {
 ```
 
 #### **Events:**
-```rust
-#[derive(Clone, Debug, PartialEq)]
+    ```rust
+    #[derive(Clone, Debug, PartialEq)]
 pub enum Event<AccountId> {
     /// Role was assigned to an account
     RoleAssigned { account: AccountId, role: Origin },
@@ -83,8 +83,8 @@ pub enum Event<AccountId> {
 ```
 
 #### **Errors:**
-```rust
-#[derive(Clone, Debug, PartialEq)]
+    ```rust
+    #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     /// Origin does not have required permissions
     InsufficientPermissions,
@@ -102,7 +102,7 @@ pub enum Error {
 ### Origin Filtering Implementation:
 
 #### **Origin Filters:**
-```rust
+    ```rust
 impl<T: Config> Pallet<T> {
     /// Ensure origin is admin
     fn ensure_admin(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
@@ -143,7 +143,7 @@ impl<T: Config> Pallet<T> {
 ```
 
 #### **Dispatchable Functions with Custom Origins:**
-```rust
+    ```rust
 impl<T: Config> Pallet<T> {
     /// Assign a role to an account (Admin only)
     pub fn assign_role(
@@ -254,7 +254,7 @@ impl<T: Config> Pallet<T> {
 ### Helper Functions:
 
 #### **Utility Methods:**
-```rust
+        ```rust
 impl<T: Config> Pallet<T> {
     pub fn new() -> Self {
         Self {
