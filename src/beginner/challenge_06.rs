@@ -1,4 +1,3 @@
-
 use std::ops::Add;
 
 pub trait Summable {
@@ -6,12 +5,10 @@ pub trait Summable {
     fn sum_with(&self, other: &Self) -> Self::Output;
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Store<T> {
     value: T
 }
-
 
 impl<T: Clone + Add<Output = T> + Copy> Store<T> {
     pub fn new(v: T) -> Self {
@@ -19,14 +16,12 @@ impl<T: Clone + Add<Output = T> + Copy> Store<T> {
     }
 }
 
-
 impl <T> Summable for Store<T> where T: Clone + Add<Output = T> + Copy, {
     type Output = T;
     fn sum_with(&self, other: &Self) -> T {
         self.value + other.value
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -49,11 +44,8 @@ mod tests {
     }
 }
 
-
 fn main() {
-
     let a = Store::new(30i64);
     let b = Store::new(5i64);
     println!("{}", a.sum_with(&b));
-}
-
+} 
