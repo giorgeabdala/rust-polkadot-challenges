@@ -40,7 +40,7 @@ Advanced Polkadot SDK concepts:
 - Runtime Development
 - Pallet Architecture
 
-**Dependencies:** Some with Substrate-specific crates
+**Dependencies:** Some challenges use `serde` and `serde_json` for serialization
 
 ## 🚀 Getting Started
 
@@ -79,6 +79,18 @@ cargo add futures
 cargo add --dev criterion --features html_reports
 ```
 
+**Advanced Challenge 3 (JSON-RPC):**
+```bash
+cargo add serde --features derive
+cargo add serde_json
+```
+
+**Advanced Challenge 7 (Inherents):**
+```bash
+cargo add serde --features derive
+cargo add bincode
+```
+
 ### 4. Run tests
 ```bash
 cargo test
@@ -95,8 +107,10 @@ cargo check
 - ⚠️ Challenge 5: `tokio`, `futures`
 - ⚠️ Challenge 10: `criterion` (benchmarks only)
 
-### Advanced (some dependencies)
-- Specific instructions in each challenge that requires them
+### Advanced (2 challenges with dependencies)
+- ✅ Challenges 1-2, 4-6, 8-12: only `std`
+- ⚠️ Challenge 3: `serde`, `serde_json` (for JSON-RPC)
+- ⚠️ Challenge 7: `serde`, `bincode` (for inherent data)
 
 ## 🎯 Learning Objectives
 
