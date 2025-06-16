@@ -1,315 +1,155 @@
-## Challenge 3: Simple Custom RPC for Counter Pallet
+## Challenge 3: Simulating a Simple Storage Migration
 
 **Difficulty Level:** Advanced
 **Estimated Time:** 2 hours
 
 ### Objective Description
 
-You will implement a simple custom RPC (Remote Procedure Call) system for a counter pallet. This challenge focuses on understanding how external applications can query blockchain state and call custom functions that are not part of the standard runtime API.
+In this challenge, you will simulate a very basic storage migration for a "pallet". The idea is to understand how stored state can be transformed when a pallet's logic evolves.
+
+Let's consider two versions of a storage item:
+- **V1:** Stores a simple `u32` value.
+- **V2:** Stores a tuple `(u32, bool)`. The intention is that the `u32` is the value from V1, and the `bool` is a new indicator (for example, `is_migrated_data: true`).
+
+You will implement a structure that simulates a pallet's storage and a function that performs the migration from V1 to V2.
 
 **Main Concepts Covered:**
-1. **RPC System:** External interface for blockchain interaction
-2. **Runtime API:** Bridge between RPC and runtime logic
-3. **State Queries:** Reading blockchain state without transactions
-4. **Custom Endpoints:** Creating specialized query functions
-5. **JSON-RPC Protocol:** Standard protocol for remote calls
+- **`Structs` and `Enums`:** To define the structure of our simulated "pallet" and storage versioning.
+- **`Option<T>`:** To represent values that may or may not exist in storage.
+- **Pattern Matching:** To handle different states and versions of storage.
+- **Migration Logic:** Implement data transformation from V1 to V2.
+- **Storage Versioning:** Control when migration should occur.
 
-### Detailed Structures to Implement:
+### Structures to Implement:
 
-#### **Counter Pallet (Simplified):**
+#### **`Config` Trait (Minimal):**
 ```rust
-use std::collections::HashMap;
-
-pub struct CounterPallet {
-    counters: HashMap<String, u32>,
-}
-
-impl CounterPallet {
-    pub fn new() -> Self {
-        Self {
-            counters: HashMap::new(),
-        }
-    }
-    
-    pub fn increment_counter(&mut self, name: String) -> u32 {
-        let counter = self.counters.entry(name).or_insert(0);
-        *counter = counter.saturating_add(1);
-        *counter
-    }
-    
-    pub fn get_counter(&self, name: &str) -> Option<u32> {
-        self.counters.get(name).copied()
-    }
-    
-    pub fn get_all_counters(&self) -> Vec<(String, u32)> {
-        self.counters.iter().map(|(k, v)| (k.clone(), *v)).collect()
-    }
+pub trait Config {
+    // For this challenge, can be empty or define types you find useful,
+    // but not strictly necessary for the main migration logic.
+    // Example: type Weight = u64; (for migration function return)
 }
 ```
 
-#### **RPC Trait Definition:**
+#### **`StorageVersion` Enum:**
 ```rust
-/// RPC interface for counter operations
-pub trait CounterRpc {
-    /// Get the value of a specific counter
-    fn get_counter(&self, name: String) -> Result<Option<u32>, String>;
-    
-    /// Get all counters and their values
-    fn get_all_counters(&self) -> Result<Vec<(String, u32)>, String>;
-    
-    /// Get the total sum of all counters
-    fn get_total_sum(&self) -> Result<u32, String>;
-    
-    /// Get counters above a certain threshold
-    fn get_counters_above(&self, threshold: u32) -> Result<Vec<(String, u32)>, String>;
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum StorageVersion {
+    V1_SimpleU32,
+    V2_U32WithFlag,
 }
 ```
 
-#### **Runtime API Bridge:**
+#### **`PalletStorageSim<T: Config>` Struct:**
+This struct simulates our pallet's storage state.
     ```rust
-/// Bridge between RPC and runtime
-pub trait CounterRuntimeApi {
-    fn get_counter_value(&self, name: String) -> Option<u32>;
-    fn get_all_counter_values(&self) -> Vec<(String, u32)>;
-}
+pub struct PalletStorageSim<T: Config> {
+    // Current version of storage schema.
+    pub current_version: StorageVersion,
 
-/// Mock runtime API implementation
-pub struct MockRuntimeApi {
-    pallet: CounterPallet,
-}
+    // Simulates V1 storage. Contains value if version is V1_SimpleU32.
+    // Will be 'None' after successful migration to V2.
+    storage_v1_value: Option<u32>,
 
-impl MockRuntimeApi {
-    pub fn new(pallet: CounterPallet) -> Self {
-        Self { pallet }
-    }
-}
+    // Simulates V2 storage. Contains value if version is V2_U32WithFlag.
+    // Will be populated during migration.
+    storage_v2_value: Option<(u32, bool)>,
 
-impl CounterRuntimeApi for MockRuntimeApi {
-    fn get_counter_value(&self, name: String) -> Option<u32> {
-        self.pallet.get_counter(&name)
-    }
-    
-    fn get_all_counter_values(&self) -> Vec<(String, u32)> {
-        self.pallet.get_all_counters()
-    }
+    _phantom: core::marker::PhantomData<T>, // To use T: Config
 }
 ```
 
-#### **RPC Implementation:**
-    ```rust
-pub struct CounterRpcImpl<Api> {
-    runtime_api: Api,
-}
+### Methods of `PalletStorageSim<T: Config>`:
 
-impl<Api> CounterRpcImpl<Api> {
-    pub fn new(runtime_api: Api) -> Self {
-        Self { runtime_api }
-    }
-}
+#### **`pub fn new() -> Self`**
+- Initializes `current_version` to `StorageVersion::V1_SimpleU32`.
+- Initializes `storage_v1_value` and `storage_v2_value` to `None`.
 
-impl<Api: CounterRuntimeApi> CounterRpc for CounterRpcImpl<Api> {
-    fn get_counter(&self, name: String) -> Result<Option<u32>, String> {
-        Ok(self.runtime_api.get_counter_value(name))
-    }
-    
-    fn get_all_counters(&self) -> Result<Vec<(String, u32)>, String> {
-        Ok(self.runtime_api.get_all_counter_values())
-    }
-    
-    fn get_total_sum(&self) -> Result<u32, String> {
-        let counters = self.runtime_api.get_all_counter_values();
-        let sum = counters.iter().map(|(_, value)| value).sum();
-        Ok(sum)
-    }
-    
-    fn get_counters_above(&self, threshold: u32) -> Result<Vec<(String, u32)>, String> {
-        let counters = self.runtime_api.get_all_counter_values();
-        let filtered: Vec<(String, u32)> = counters
-            .into_iter()
-            .filter(|(_, value)| *value > threshold)
-            .collect();
-        Ok(filtered)
-    }
-}
-```
+#### **`pub fn set_initial_v1_value(&mut self, value: u32)`**
+- Sets `storage_v1_value` to `Some(value)`.
+- **Important:** This function should only have effect if `current_version` is `V1_SimpleU32`. If already in V2, you can choose to do nothing or return an error/panic (for this challenge, doing nothing is sufficient).
 
-### JSON-RPC Protocol Simulation:
+#### **`pub fn get_current_v2_value(&self) -> Option<(u32, bool)>`**
+- Returns a copy of `storage_v2_value` **only if** `current_version` is `V2_U32WithFlag`. Otherwise, returns `None`.
 
-### Project Setup
-
-Before starting, you will need to configure the necessary dependencies:
-
-#### **Cargo.toml:**
-```toml
-[package]
-name = "counter-rpc-challenge"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-```
-
-#### **How to configure (choose one option):**
-
-**Option 1 - Using cargo add (recommended):**
-```bash
-cargo add serde --features derive
-cargo add serde_json
-```
-
-**Option 2 - Editing Cargo.toml manually:**
-```bash
-# Edit the Cargo.toml file above and then run:
-cargo build
-```
-
-#### **RPC Request/Response Types:**
-```rust
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcRequest {
-    pub jsonrpc: String,
-    pub method: String,
-    pub params: serde_json::Value,
-    pub id: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcResponse {
-    pub jsonrpc: String,
-    pub result: Option<serde_json::Value>,
-    pub error: Option<RpcError>,
-    pub id: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcError {
-    pub code: i32,
-    pub message: String,
-}
-```
-
-#### **RPC Handler:**
-```rust
-pub struct RpcHandler<Rpc> {
-    counter_rpc: Rpc,
-}
-
-impl<Rpc: CounterRpc> RpcHandler<Rpc> {
-    pub fn new(counter_rpc: Rpc) -> Self {
-        Self { counter_rpc }
-    }
-    
-    pub fn handle_request(&self, request: RpcRequest) -> RpcResponse {
-        let result = match request.method.as_str() {
-            "counter_getCounter" => {
-                let name = match request.params.get("name") {
-                    Some(serde_json::Value::String(s)) => s.clone(),
-                    _ => return self.error_response(request.id, -32602, "Invalid params"),
-                };
-                
-                match self.counter_rpc.get_counter(name) {
-                    Ok(value) => serde_json::to_value(value).unwrap(),
-                    Err(e) => return self.error_response(request.id, -32603, &e),
-                }
-            },
-            "counter_getAllCounters" => {
-                match self.counter_rpc.get_all_counters() {
-                    Ok(counters) => serde_json::to_value(counters).unwrap(),
-                    Err(e) => return self.error_response(request.id, -32603, &e),
-                }
-            },
-            "counter_getTotalSum" => {
-                match self.counter_rpc.get_total_sum() {
-                    Ok(sum) => serde_json::to_value(sum).unwrap(),
-                    Err(e) => return self.error_response(request.id, -32603, &e),
-                }
-            },
-            "counter_getCountersAbove" => {
-                let threshold = match request.params.get("threshold") {
-                    Some(serde_json::Value::Number(n)) => n.as_u64().unwrap_or(0) as u32,
-                    _ => return self.error_response(request.id, -32602, "Invalid params"),
-                };
-                
-                match self.counter_rpc.get_counters_above(threshold) {
-                    Ok(counters) => serde_json::to_value(counters).unwrap(),
-                    Err(e) => return self.error_response(request.id, -32603, &e),
-                }
-            },
-            _ => return self.error_response(request.id, -32601, "Method not found"),
-        };
-        
-        RpcResponse {
-            jsonrpc: "2.0".to_string(),
-            result: Some(result),
-            error: None,
-            id: request.id,
-        }
-    }
-    
-    fn error_response(&self, id: u64, code: i32, message: &str) -> RpcResponse {
-        RpcResponse {
-            jsonrpc: "2.0".to_string(),
-            result: None,
-            error: Some(RpcError {
-                code,
-                message: message.to_string(),
-            }),
-            id,
-        }
-    }
-}
-```
+#### **`pub fn run_migration_if_needed(&mut self) -> u64 /* Simulated Weight */`**
+This function simulates the `on_runtime_upgrade` hook that would be called during a runtime upgrade.
+- Checks `self.current_version`:
+  - If `StorageVersion::V1_SimpleU32`:
+    - Performs migration:
+      - If `self.storage_v1_value` is `Some(old_val)`, then `self.storage_v2_value` becomes `Some((old_val, true))`.
+      - If `self.storage_v1_value` is `None`, then `self.storage_v2_value` becomes `None`.
+    - "Cleans" old storage: `self.storage_v1_value = None`.
+    - Updates version: `self.current_version = StorageVersion::V2_U32WithFlag`.
+    - Returns simulated "weight" (e.g., `2` to indicate 1 read and 2 writes - version and new value). If V1 value was `None`, weight can be `1` (1 version read, 1 version write).
+  - If already `StorageVersion::V2_U32WithFlag` (or any newer version, if there were any):
+    - No action needed.
+    - Returns weight `0`.
 
 ### Tests
 
-Create comprehensive tests covering:
+Create a `tests` module and use a simple `TestConfig` struct.
 
-1. **Counter Pallet Operations:**
-   - Test counter increment functionality
-   - Test counter retrieval
-   - Test getting all counters
+**Test Scenarios:**
 
-2. **Runtime API:**
-   - Test runtime API bridge functionality
-   - Verify correct data flow from pallet to API
+1. **Initialization:**
+   - Verify that `PalletStorageSim::new()` sets `current_version` to `V1_SimpleU32` and values to `None`.
 
-3. **RPC Implementation:**
-   - Test all RPC methods
-   - Verify correct return values
-   - Test error handling
+2. **Set V1 Value:**
+   - Create pallet, call `set_initial_v1_value(100)`.
+   - Verify that `storage_v1_value` is `Some(100)`.
+   - Verify that `get_current_v2_value()` returns `None`.
 
-4. **JSON-RPC Protocol:**
-   - Test request/response serialization
-   - Test method routing
-   - Test error responses
-   - Test parameter validation
+3. **Migration with Existing Value:**
+   - Set a V1 value (e.g., `100`).
+   - Call `run_migration_if_needed()`.
+   - Verify that `current_version` is `V2_U32WithFlag`.
+   - Verify that `storage_v1_value` is `None`.
+   - Verify that `storage_v2_value` is `Some((100, true))`.
+   - Verify that `get_current_v2_value()` returns `Some((100, true))`.
+   - Verify that returned weight is > 0.
+
+4. **Migration with Missing V1 Value:**
+   - Create pallet (without calling `set_initial_v1_value`).
+   - Call `run_migration_if_needed()`.
+   - Verify that `current_version` is `V2_U32WithFlag`.
+   - Verify that `storage_v1_value` is `None`.
+   - Verify that `storage_v2_value` is `None`.
+   - Verify that `get_current_v2_value()` returns `None`.
+   - Verify that returned weight is > 0 (due to version update).
+
+5. **Double Migration Attempt:**
+   - Perform successful migration.
+   - Call `run_migration_if_needed()` again.
+   - Verify that state (`current_version`, `storage_v1_value`, `storage_v2_value`) remains unchanged.
+   - Verify that returned weight is `0`.
+
+6. **Attempt to Set V1 Value After Migration:**
+   - Perform migration.
+   - Try calling `set_initial_v1_value(200)`.
+   - Verify that `storage_v1_value` remains `None` (or the behavior you defined for this case) and `storage_v2_value` is not affected.
 
 ### Expected Output
 
-A complete RPC system that:
-- Provides external access to counter pallet state
-- Implements proper JSON-RPC protocol
-- Handles errors gracefully
-- Demonstrates separation between runtime and RPC layers
-- Shows understanding of blockchain external interfaces
+A functional implementation of `PalletStorageSim<T>` and its methods, passing all unit tests. The code should clearly demonstrate migration logic and version control.
 
 ### Theoretical Context
 
-**RPC in Substrate:**
-- **Purpose:** Allows external applications to interact with the blockchain
-- **Architecture:** RPC layer → Runtime API → Pallet logic
-- **Protocol:** Uses JSON-RPC 2.0 standard
-- **State Queries:** Read blockchain state without submitting transactions
-- **Custom Methods:** Pallets can expose specialized query functions
+**Runtime Upgrades:** In Substrate, the blockchain logic (the runtime, compiled to Wasm) can be updated on-chain. This allows the blockchain to evolve without hard forks.
 
-**Runtime API:**
-- Bridge between external RPC calls and runtime logic
-- Defined using `sp_api::decl_runtime_apis!` macro
-- Implemented in runtime using `impl_runtime_apis!` macro
-- Provides versioned interface for external queries
+**Storage Migrations:** When the structure of data stored by a pallet changes in a new runtime version, a storage migration is necessary. This migration is code that runs once during the upgrade to transform data from the old format to the new.
 
-This system enables rich client applications and external integrations with the blockchain.
+**`OnRuntimeUpgrade` Trait:** Pallets can implement this trait. Its `on_runtime_upgrade()` function is called by the `Executive` pallet during the runtime upgrade process, after the new runtime code is deployed, but before anything else (like `on_initialize` or transactions) is processed.
+
+**`StorageVersion`:** It's common practice for pallets to maintain their own storage "schema" version. Migration logic checks this version to decide if migration should be executed.
+- `VersionedMigration` is a common helper for this in FRAME, but we're simulating the concept manually.
+
+**Importance:** Without correct migrations, the new runtime version could fail to read old data or interpret it incorrectly, leading to inconsistencies or panics.
+
+This simplified challenge focuses on the core mechanics of data transformation and versioning, which are crucial for understanding storage migrations in Substrate.
+
+Advanced Level Flow:
+Foundation    ▁▂▃   (Challenges 1-3: Pallet, Weight, Storage)
+Core APIs     ▄▅▆   (Challenges 4-6: RPC, Origin, Unsigned)
+Integration   ▆▇█   (Challenges 7-9: Inherents, Workers, Hooks) 
+Advanced      █▇▆   (Challenges 10-12: Pool, XCM, Runtime)

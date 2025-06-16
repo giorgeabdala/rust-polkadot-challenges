@@ -1,222 +1,341 @@
-## Challenge 5: Unsigned Ping with Validation
+## Challenge 5: Simple Custom Origin Pallet
 
 **Difficulty Level:** Advanced
 **Estimated Time:** 2 hours
 
 ### Objective Description
 
-You will implement a simulated pallet that accepts an unsigned transaction called "ping". When valid, this transaction will record the current block number when it was received. The core part of the challenge is implementing the `ValidateUnsigned` trait to protect this functionality, primarily by limiting the frequency at which these pings can be sent to prevent spam.
+You will implement a pallet with custom origins that demonstrates how to create specialized permission systems beyond the standard `Root` and `Signed` origins. This challenge focuses on understanding how custom origins work in FRAME and how they can be used to implement fine-grained access control.
 
-**Concepts and Structures to Implement/Simulate:**
-
-1. **`Pallet<T: Config>`:** The main struct of our pallet.
-   - Will store `last_ping_block: Option<T::BlockNumber>` to track the block of the last successful ping.
-   - Will maintain a list of emitted events: `emitted_events: Vec<Event>`.
-
-2. **`Config` Trait:**
-   - `type BlockNumber: ...` (with necessary operations like `Sub`, `PartialOrd`, `Copy`, `Default`).
-   - `type PingInterval: Get<Self::BlockNumber>;` (defines the minimum number of blocks that must pass between unsigned pings).
-
-3. **`Call<T: Config>` Enum:**
-   - Will contain one variant: `PingUnsigned`.
-
-4. **`Event` Enum:**
-   - `PingReceived { block_number: T::BlockNumber }`
-
-5. **`Error` Enum:**
-   - `TooEarlyToPing` (if a ping is attempted before the `PingInterval`).
-   - `InvalidCall` (if `validate_unsigned` is called with an unexpected `Call`).
-
-6. **`ValidateUnsigned` Trait (Simulated):**
-   - You will implement this trait for your `Pallet<T>`.
-   - It will have two main methods: `validate_unsigned` and `pre_dispatch`.
-
-7. **`ValidTransaction` and `TransactionValidityError` (Simulated):**
-   - Simplified structures to represent validation results, as used by the `ValidateUnsigned` trait.
+**Main Concepts Covered:**
+1. **Custom Origins:** Creating specialized permission types
+2. **Origin Filtering:** Controlling who can call specific functions
+3. **Permission Systems:** Implementing role-based access control
+4. **Origin Conversion:** Converting between different origin types
+5. **Access Control:** Fine-grained permission management
 
 ### Detailed Structures to Implement:
 
-#### **`Config` Trait:**
-```rust
-// Helper trait to get configuration values
-pub trait Get<V> {
-    fn get() -> V;
+#### **Custom Origin Definition:**
+    ```rust
+/// Custom origins for the pallet
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Origin {
+    /// Administrative origin - highest level access
+    Admin,
+    /// Moderator origin - medium level access
+    Moderator,
+    /// Member origin - basic level access
+    Member,
 }
 
-pub trait Config {
-    type BlockNumber: Clone + Copy + Default + PartialEq + PartialOrd + core::ops::Sub<Output = Self::BlockNumber> + core::fmt::Debug;
-    type PingInterval: Get<Self::BlockNumber>; // Minimum blocks between pings
-}
-```
-
-#### **`Call<T: Config>` Enum:**
-```rust
-// The _phantom is to use the generic T, simulating how it would be in FRAME
-#[derive(Clone, Debug, PartialEq)]
-pub enum Call<T: Config> {
-    PingUnsigned,
-    _Phantom(core::marker::PhantomData<T>), // To use T
-}
-```
-
-#### **`Event<BlockNumber>` Enum:**
-```rust
-#[derive(Clone, Debug, PartialEq)]
-pub enum Event<BlockNumber> {
-    PingReceived { block_number: BlockNumber },
-}
-```
-
-#### **`Error` Enum:**
-```rust
-#[derive(Clone, Debug, PartialEq)]
-pub enum Error {
-    TooEarlyToPing,
-    InvalidCall, // If validate_unsigned is called with a Call that is not PingUnsigned
-}
-```
-
-#### **Validation Structures (Simulated):**
-```rust
-#[derive(Debug, PartialEq, Clone)]
-pub struct ValidTransaction {
-    pub priority: u64,
-    pub requires: Vec<Vec<u8>>,
-    pub provides: Vec<Vec<u8>>,
-    pub longevity: u64, // In number of blocks
-    pub propagate: bool,
-}
-
-impl Default for ValidTransaction {
-    fn default() -> Self {
-        Self {
-            priority: 0,
-            requires: vec![],
-            provides: vec![],
-            longevity: 5, // Default validity of 5 blocks
-            propagate: true,
-        }
+impl Origin {
+    /// Check if origin has admin privileges
+    pub fn is_admin(&self) -> bool {
+        matches!(self, Origin::Admin)
+    }
+    
+    /// Check if origin has at least moderator privileges
+    pub fn is_moderator_or_above(&self) -> bool {
+        matches!(self, Origin::Admin | Origin::Moderator)
+    }
+    
+    /// Check if origin has at least member privileges
+    pub fn is_member_or_above(&self) -> bool {
+        matches!(self, Origin::Admin | Origin::Moderator | Origin::Member)
     }
 }
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum TransactionValidityError {
-    Invalid(Error), // Using our pallet's Error enum
-    Unknown,      // For other types of validity errors
-}
-
-pub type TransactionValidity = Result<ValidTransaction, TransactionValidityError>;
 ```
 
-#### **`ValidateUnsigned<T: Config>` Trait:**
-```rust
-pub trait ValidateUnsigned<T: Config> {
-    fn validate_unsigned(
-        // In FRAME, TransactionSource would be a parameter here. Omitted for simplicity.
-        call: &Call<T>,
-        current_block: T::BlockNumber,
-        last_ping_block: Option<T::BlockNumber>, // Passing relevant state
-    ) -> TransactionValidity;
-
-    fn pre_dispatch(call: &Call<T>) -> Result<(), TransactionValidityError>;
+#### **Pallet Configuration:**
+    ```rust
+pub trait Config {
+    type RuntimeOrigin: From<Origin>;
+    type AccountId: Clone + PartialEq + core::fmt::Debug;
 }
-```
 
-#### **`Pallet<T: Config>` Struct:**
-```rust
 pub struct Pallet<T: Config> {
-    last_ping_block: Option<T::BlockNumber>,
-    emitted_events: Vec<Event<T::BlockNumber>>,
+    /// Maps accounts to their roles
+    roles: std::collections::HashMap<T::AccountId, Origin>,
+    /// Storage for managed data
+    managed_data: std::collections::HashMap<String, String>,
+    /// Event log
+    events: Vec<Event<T::AccountId>>,
+    _phantom: std::marker::PhantomData<T>,
 }
+```
 
+#### **Events:**
+    ```rust
+    #[derive(Clone, Debug, PartialEq)]
+pub enum Event<AccountId> {
+    /// Role was assigned to an account
+    RoleAssigned { account: AccountId, role: Origin },
+    /// Role was revoked from an account
+    RoleRevoked { account: AccountId },
+    /// Data was created by an account
+    DataCreated { key: String, creator: AccountId },
+    /// Data was updated by an account
+    DataUpdated { key: String, updater: AccountId },
+    /// Data was deleted by an account
+    DataDeleted { key: String, deleter: AccountId },
+}
+```
+
+#### **Errors:**
+    ```rust
+    #[derive(Clone, Debug, PartialEq)]
+pub enum Error {
+    /// Origin does not have required permissions
+    InsufficientPermissions,
+    /// Account does not have any assigned role
+    NoRoleAssigned,
+    /// Data key already exists
+    DataAlreadyExists,
+    /// Data key not found
+    DataNotFound,
+    /// Invalid origin type
+    InvalidOrigin,
+}
+```
+
+### Origin Filtering Implementation:
+
+#### **Origin Filters:**
+    ```rust
+impl<T: Config> Pallet<T> {
+    /// Ensure origin is admin
+    fn ensure_admin(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
+        let role = Self::get_role(account).ok_or(Error::NoRoleAssigned)?;
+        if role.is_admin() {
+            Ok(())
+        } else {
+            Err(Error::InsufficientPermissions)
+        }
+    }
+    
+    /// Ensure origin is moderator or above
+    fn ensure_moderator_or_above(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
+        let role = Self::get_role(account).ok_or(Error::NoRoleAssigned)?;
+        if role.is_moderator_or_above() {
+            Ok(())
+        } else {
+            Err(Error::InsufficientPermissions)
+        }
+    }
+    
+    /// Ensure origin is member or above
+    fn ensure_member_or_above(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
+        let role = Self::get_role(account).ok_or(Error::NoRoleAssigned)?;
+        if role.is_member_or_above() {
+            Ok(())
+        } else {
+            Err(Error::InsufficientPermissions)
+        }
+    }
+    
+    /// Get role for an account
+    fn get_role(account: &T::AccountId) -> Option<Origin> {
+        // In a real implementation, this would query storage
+        None // Placeholder
+    }
+}
+```
+
+#### **Dispatchable Functions with Custom Origins:**
+    ```rust
+impl<T: Config> Pallet<T> {
+    /// Assign a role to an account (Admin only)
+    pub fn assign_role(
+        &mut self,
+        origin: T::RuntimeOrigin,
+        caller: T::AccountId,
+        target: T::AccountId,
+        role: Origin,
+    ) -> Result<(), Error> {
+        Self::ensure_admin(&origin, &caller)?;
+        
+        self.roles.insert(target.clone(), role.clone());
+        self.events.push(Event::RoleAssigned { 
+            account: target, 
+            role 
+        });
+        
+        Ok(())
+    }
+    
+    /// Revoke role from an account (Admin only)
+    pub fn revoke_role(
+        &mut self,
+        origin: T::RuntimeOrigin,
+        caller: T::AccountId,
+        target: T::AccountId,
+    ) -> Result<(), Error> {
+        Self::ensure_admin(&origin, &caller)?;
+        
+        self.roles.remove(&target);
+        self.events.push(Event::RoleRevoked { 
+            account: target 
+        });
+        
+        Ok(())
+    }
+    
+    /// Create data (Member or above)
+    pub fn create_data(
+        &mut self,
+        origin: T::RuntimeOrigin,
+        caller: T::AccountId,
+        key: String,
+        value: String,
+    ) -> Result<(), Error> {
+        Self::ensure_member_or_above(&origin, &caller)?;
+        
+        if self.managed_data.contains_key(&key) {
+            return Err(Error::DataAlreadyExists);
+        }
+        
+        self.managed_data.insert(key.clone(), value);
+        self.events.push(Event::DataCreated { 
+            key, 
+            creator: caller 
+        });
+        
+        Ok(())
+    }
+    
+    /// Update data (Moderator or above)
+    pub fn update_data(
+        &mut self,
+        origin: T::RuntimeOrigin,
+        caller: T::AccountId,
+        key: String,
+        new_value: String,
+    ) -> Result<(), Error> {
+        Self::ensure_moderator_or_above(&origin, &caller)?;
+        
+        if !self.managed_data.contains_key(&key) {
+            return Err(Error::DataNotFound);
+        }
+        
+        self.managed_data.insert(key.clone(), new_value);
+        self.events.push(Event::DataUpdated { 
+            key, 
+            updater: caller 
+        });
+        
+        Ok(())
+    }
+    
+    /// Delete data (Admin only)
+    pub fn delete_data(
+        &mut self,
+        origin: T::RuntimeOrigin,
+        caller: T::AccountId,
+        key: String,
+    ) -> Result<(), Error> {
+        Self::ensure_admin(&origin, &caller)?;
+        
+        if !self.managed_data.contains_key(&key) {
+            return Err(Error::DataNotFound);
+        }
+        
+        self.managed_data.remove(&key);
+        self.events.push(Event::DataDeleted { 
+            key, 
+            deleter: caller 
+        });
+        
+        Ok(())
+    }
+}
+```
+
+### Helper Functions:
+
+#### **Utility Methods:**
+        ```rust
 impl<T: Config> Pallet<T> {
     pub fn new() -> Self {
         Self {
-            last_ping_block: None,
-            emitted_events: Vec::new(),
+            roles: std::collections::HashMap::new(),
+            managed_data: std::collections::HashMap::new(),
+            events: Vec::new(),
+            _phantom: std::marker::PhantomData,
         }
     }
-
-    // Function that would be called by the "runtime" after pre_dispatch succeeds
-    pub fn ping_unsigned_impl(&mut self, current_block: T::BlockNumber) -> Result<(), Error> {
-        // Time validation was already done in validate_unsigned.
-        // Here, we just execute the dispatch logic.
-        self.last_ping_block = Some(current_block);
-        self.emitted_events.push(Event::PingReceived { block_number: current_block });
-        Ok(())
+    
+    /// Get all accounts with a specific role
+    pub fn get_accounts_with_role(&self, role: &Origin) -> Vec<T::AccountId> {
+        self.roles
+            .iter()
+            .filter(|(_, r)| *r == role)
+            .map(|(account, _)| account.clone())
+            .collect()
     }
-
-    pub fn take_events(&mut self) -> Vec<Event<T::BlockNumber>> {
-        std::mem::take(&mut self.emitted_events)
+    
+    /// Get data by key
+    pub fn get_data(&self, key: &str) -> Option<String> {
+        self.managed_data.get(key).cloned()
     }
-
-    // Helper method for tests to set initial state
-    #[cfg(test)]
-    pub fn set_last_ping_block(&mut self, block: Option<T::BlockNumber>) {
-        self.last_ping_block = block;
+    
+    /// Get all data keys
+    pub fn get_all_keys(&self) -> Vec<String> {
+        self.managed_data.keys().cloned().collect()
+    }
+    
+    /// Take events for testing
+    pub fn take_events(&mut self) -> Vec<Event<T::AccountId>> {
+        std::mem::take(&mut self.events)
     }
 }
 ```
 
-### Implementation of `ValidateUnsigned for Pallet<T>`:
-
-This is the crucial part. You will implement this trait for your `Pallet` struct.
-
-#### **`validate_unsigned(...)`:**
-1. Check if the `call` is `Call::PingUnsigned`. If not, return `Err(TransactionValidityError::Invalid(Error::InvalidCall))`.
-2. Use the `last_ping_block` (passed as parameter, since the trait doesn't have `&self`) and `current_block` to check if `current_block - last_ping_block >= T::PingInterval::get()`.
-   - If `last_ping_block` is `None`, the ping is allowed.
-3. If it's too early, return `Err(TransactionValidityError::Invalid(Error::TooEarlyToPing))`.
-4. If valid, construct and return `Ok(ValidTransaction { ... })`.
-   - `provides`: `vec![b"my_pallet_ping_unsigned_tag".to_vec()]`. This helps the transaction pool not accept multiple identical pings at the same time.
-   - `longevity`: A reasonable value, e.g., `T::PingInterval::get()` (the ping is valid until the next one can be sent).
-   - `priority`: Can be a default value, or maybe higher if pings are important.
-   - `propagate`: `true`.
-
-#### **`pre_dispatch(...)`:**
-1. Check if the `call` is `Call::PingUnsigned`. If not (which would be strange if `validate_unsigned` passed), return an appropriate error (e.g., `Err(TransactionValidityError::Invalid(Error::InvalidCall))`).
-2. For this challenge, if the call is `PingUnsigned`, it can simply return `Ok(())`, since the main validation logic (timing) was already done in `validate_unsigned`. In more complex scenarios, `pre_dispatch` might redo some light checks or prepare state.
-
 ### Tests
 
-Create a `tests` module. You will need:
-- `TestBlockNumber` (e.g., `u64`).
-- `TestPingInterval` struct that implements `Get<TestBlockNumber>`.
-- `TestConfig` struct that implements `crate::Config`.
+Create comprehensive tests covering:
 
-**Test Scenarios:**
+1. **Role Management:**
+   - Test role assignment by admin
+   - Test role revocation by admin
+   - Test permission denial for non-admin role operations
 
-- **Successful validation:**
-  - No previous pings: `validate_unsigned` should return `Ok(ValidTransaction)`.
-  - After sufficient interval: `validate_unsigned` should return `Ok(ValidTransaction)`.
-- **Validation failure:**
-  - Ping too early: `validate_unsigned` should return `Err(TransactionValidityError::Invalid(Error::TooEarlyToPing))`.
-  - Invalid call for `validate_unsigned`: Should return `Err(TransactionValidityError::Invalid(Error::InvalidCall))`.
-- **`pre_dispatch`:**
-  - Valid call: `pre_dispatch` should return `Ok(())`.
+2. **Permission Levels:**
+   - Test member-level operations (create data)
+   - Test moderator-level operations (update data)
+   - Test admin-level operations (delete data)
+
+3. **Access Control:**
+   - Test permission escalation prevention
+   - Test proper error handling for insufficient permissions
+   - Test role-based function access
+
+4. **Data Management:**
+   - Test data creation, update, and deletion
+   - Test error handling for duplicate/missing data
+   - Test proper event emission
 
 ### Expected Output
 
-A set of Rust functions that pass all proposed unit tests, demonstrating correct manipulation of unsigned transaction validation, timing constraints, and proper error handling.
+A complete custom origin system that:
+- Implements hierarchical permission levels
+- Properly filters function access based on roles
+- Demonstrates fine-grained access control
+- Shows understanding of FRAME origin system
+- Handles errors gracefully
 
 ### Theoretical Context
 
-#### **Unsigned Transactions:**
-- Transactions that don't require a signature from any account
-- Used for data that anyone can submit (like oracle data, inherents)
-- Must be carefully validated to prevent spam
-- Common in off-chain workers and inherent data providers
+**Custom Origins in FRAME:**
+- **Purpose:** Enable fine-grained access control beyond basic Root/Signed
+- **Implementation:** Custom enum types that implement origin traits
+- **Integration:** Works with FRAME's origin filtering system
+- **Use Cases:** Role-based access, governance systems, specialized permissions
 
-#### **`ValidateUnsigned` Trait:**
-- Core mechanism for validating unsigned transactions in Substrate
-- Two-phase validation: `validate_unsigned` (in transaction pool) and `pre_dispatch` (before execution)
-- Must prevent spam while allowing legitimate unsigned transactions
-- Used by pallets like `pallet-im-online` for validator heartbeats
+**Origin Filtering:**
+- Functions can specify required origin types
+- Runtime validates origins before dispatch
+- Enables complex permission hierarchies
+- Prevents unauthorized access to sensitive functions
 
-#### **Transaction Pool:**
-- Validates transactions before including them in blocks
-- Uses `provides` and `requires` tags to manage transaction dependencies
-- `longevity` determines how long a transaction stays valid
-- `priority` affects transaction ordering in the pool
-
-This challenge demonstrates the critical balance between allowing useful unsigned transactions while preventing network abuse. 
+This system is essential for building sophisticated governance and permission systems in Substrate-based blockchains.

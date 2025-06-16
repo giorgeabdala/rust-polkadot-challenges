@@ -1,11 +1,12 @@
 # Rust Polkadot Challenges
 
-A comprehensive Rust course focused on Polkadot SDK/Substrate development, structured in three progressive levels.
+A comprehensive Rust course focused on Polkadot SDK/Substrate development, structured in three progressive levels with 29 total challenges.
 
 ## 📚 Course Structure
 
-### 🟢 **Beginner Level** (8 challenges - 3h35min)
+### 🟢 **Beginner Level** (9 challenges - 4h00min)
 Essential Rust fundamentals:
+- Environment Setup and Cargo Basics
 - Ownership and Borrowing
 - Structs and Enums  
 - Pattern Matching
@@ -31,14 +32,14 @@ Intermediate concepts for Substrate:
 - **Challenge 5 (Async):** `tokio`, `futures`
 - **Challenge 10 (Benchmarks):** `criterion` (dev-dependency)
 
-### 🔴 **Advanced Level** (8 challenges - 8h)
-Advanced Polkadot SDK concepts:
-- Storage Patterns
-- Transaction Pool
-- Consensus Mechanisms
-- Cross-Chain Communication (XCM)
-- Runtime Development
-- Pallet Architecture
+### 🔴 **Advanced Level** (12 challenges - 8h)
+Advanced Polkadot SDK concepts (reorganized for optimal learning flow):
+- **Foundation:** Pallet Architecture and Weight System
+- **Storage:** Migration Patterns and Persistence  
+- **External APIs:** Custom RPC and Authorization
+- **Transactions:** Unsigned Validation and Inherents
+- **Processing:** Off-chain Workers and Runtime Hooks
+- **Advanced:** Transaction Pool, XCM, and Runtime Integration
 
 **Dependencies:** Some challenges use `serde` and `serde_json` for serialization
 
@@ -52,7 +53,7 @@ cd RustPolkadotChallenges
 
 ### 2. Start with the appropriate level
 ```bash
-# For beginners
+# For beginners - start with Challenge 0
 cd src/beginner
 
 # For intermediate level  
@@ -115,6 +116,7 @@ cargo check
 ## 🎯 Learning Objectives
 
 This course prepares you for:
+- ✅ Complete Rust development environment setup
 - ✅ Safe and efficient Rust development
 - ✅ Deep understanding of Polkadot SDK
 - ✅ Creating Substrate pallets
@@ -135,6 +137,123 @@ This course prepares you for:
 - **Rust:** 1.70+ (recommended: latest version)
 - **Cargo:** Included with Rust
 - **Editor:** VS Code with rust-analyzer (recommended)
+
+## 🚨 Troubleshooting Common Issues
+
+### Installation Problems
+
+**Rust Installation Fails:**
+```bash
+# Clear previous installation
+rustup self uninstall
+
+# Reinstall with verbose output
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -v
+```
+
+**Platform-Specific Issues:**
+- **Windows:** Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+- **Linux:** `sudo apt update && sudo apt install build-essential pkg-config libssl-dev`
+- **macOS:** `xcode-select --install`
+
+### Compilation Errors
+
+**"linker not found" or "link.exe not found":**
+- Windows: Install Visual Studio Build Tools
+- Linux: Install `build-essential`
+- macOS: Install Xcode command line tools
+
+**"error: failed to run custom build command for openssl-sys":**
+```bash
+# Linux
+sudo apt install libssl-dev pkg-config
+
+# macOS
+brew install openssl
+export OPENSSL_DIR=/usr/local/opt/openssl
+```
+
+**Memory/Performance Issues:**
+```bash
+# Reduce parallel jobs if system has limited RAM
+export CARGO_BUILD_JOBS=1
+
+# Use faster linker (Linux)
+sudo apt install lld
+export RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+```
+
+### Development Environment
+
+**rust-analyzer not working:**
+1. Restart VS Code
+2. Check if `rust-analyzer` extension is installed and enabled
+3. Run `cargo check` in terminal to ensure project compiles
+4. Check VS Code settings: `"rust-analyzer.check.command": "clippy"`
+
+**Slow compilation:**
+```bash
+# Use faster linker
+# Linux
+export RUSTFLAGS="-C link-arg=-fuse-ld=lld"
+
+# macOS
+export RUSTFLAGS="-C link-arg=-fuse-ld=/usr/local/bin/zld"
+
+# Enable incremental compilation
+export CARGO_INCREMENTAL=1
+```
+
+**"overflow evaluating the requirement" errors:**
+- Usually indicates circular dependency or complex generic constraints
+- Check for infinite recursion in trait implementations
+- Simplify generic constraints step by step
+
+### Runtime Errors
+
+**Stack overflow in recursive code:**
+```bash
+# Increase stack size temporarily
+export RUST_MIN_STACK=8388608
+
+# Or use explicit stack in code
+std::thread::Builder::new()
+    .stack_size(8 * 1024 * 1024)
+    .spawn(|| { /* your code */ })
+```
+
+**"thread 'main' panicked at 'index out of bounds'":**
+- Always use `.get()` instead of direct indexing for Vec/arrays
+- Use `checked_add`, `checked_sub` for arithmetic that might overflow
+
+### Substrate-Specific Issues
+
+**"substrate" or "polkadot-sdk" dependency conflicts:**
+```bash
+# Clear cargo cache
+cargo clean
+rm Cargo.lock
+
+# Update dependencies
+cargo update
+```
+
+**WASM compilation failures:**
+```bash
+# Install WASM target
+rustup target add wasm32-unknown-unknown
+
+# Update to latest nightly (if using nightly features)
+rustup update nightly
+```
+
+### Getting Help
+
+1. **Read the error message carefully** - Rust errors are usually very descriptive
+2. **Check the Rust Book**: https://doc.rust-lang.org/book/
+3. **Search issues**: Many problems are already solved on Stack Overflow
+4. **Use `cargo clippy`**: Often suggests better ways to write code
+5. **Community**: Rust Discord, Reddit r/rust, Substrate Stack Exchange
 
 ## 📝 Challenge Structure
 

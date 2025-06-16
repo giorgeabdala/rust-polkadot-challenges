@@ -1,292 +1,265 @@
-## Challenge 4: Simple Custom Origin Pallet
+## Challenge 4: Simple Custom RPC for Counter Pallet
 
 **Difficulty Level:** Advanced
 **Estimated Time:** 2 hours
 
 ### Objective Description
 
-You will implement a pallet with custom origins that demonstrates how to create specialized permission systems beyond the standard `Root` and `Signed` origins. This challenge focuses on understanding how custom origins work in FRAME and how they can be used to implement fine-grained access control.
+You will implement a simple custom RPC (Remote Procedure Call) system for a counter pallet. This challenge focuses on understanding how external applications can query blockchain state and call custom functions that are not part of the standard runtime API.
 
 **Main Concepts Covered:**
-1. **Custom Origins:** Creating specialized permission types
-2. **Origin Filtering:** Controlling who can call specific functions
-3. **Permission Systems:** Implementing role-based access control
-4. **Origin Conversion:** Converting between different origin types
-5. **Access Control:** Fine-grained permission management
+1. **RPC System:** External interface for blockchain interaction
+2. **Runtime API:** Bridge between RPC and runtime logic
+3. **State Queries:** Reading blockchain state without transactions
+4. **Custom Endpoints:** Creating specialized query functions
+5. **JSON-RPC Protocol:** Standard protocol for remote calls
 
 ### Detailed Structures to Implement:
 
-#### **Custom Origin Definition:**
-    ```rust
-/// Custom origins for the pallet
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum Origin {
-    /// Administrative origin - highest level access
-    Admin,
-    /// Moderator origin - medium level access
-    Moderator,
-    /// Member origin - basic level access
-    Member,
+#### **Counter Pallet (Simplified):**
+```rust
+use std::collections::HashMap;
+
+pub struct CounterPallet {
+    counters: HashMap<String, u32>,
 }
 
-impl Origin {
-    /// Check if origin has admin privileges
-    pub fn is_admin(&self) -> bool {
-        matches!(self, Origin::Admin)
-    }
-    
-    /// Check if origin has at least moderator privileges
-    pub fn is_moderator_or_above(&self) -> bool {
-        matches!(self, Origin::Admin | Origin::Moderator)
-    }
-    
-    /// Check if origin has at least member privileges
-    pub fn is_member_or_above(&self) -> bool {
-        matches!(self, Origin::Admin | Origin::Moderator | Origin::Member)
-    }
-}
-```
-
-#### **Pallet Configuration:**
-    ```rust
-pub trait Config {
-    type RuntimeOrigin: From<Origin>;
-    type AccountId: Clone + PartialEq + core::fmt::Debug;
-}
-
-pub struct Pallet<T: Config> {
-    /// Maps accounts to their roles
-    roles: std::collections::HashMap<T::AccountId, Origin>,
-    /// Storage for managed data
-    managed_data: std::collections::HashMap<String, String>,
-    /// Event log
-    events: Vec<Event<T::AccountId>>,
-    _phantom: std::marker::PhantomData<T>,
-}
-```
-
-#### **Events:**
-    ```rust
-    #[derive(Clone, Debug, PartialEq)]
-pub enum Event<AccountId> {
-    /// Role was assigned to an account
-    RoleAssigned { account: AccountId, role: Origin },
-    /// Role was revoked from an account
-    RoleRevoked { account: AccountId },
-    /// Data was created by an account
-    DataCreated { key: String, creator: AccountId },
-    /// Data was updated by an account
-    DataUpdated { key: String, updater: AccountId },
-    /// Data was deleted by an account
-    DataDeleted { key: String, deleter: AccountId },
-}
-```
-
-#### **Errors:**
-    ```rust
-    #[derive(Clone, Debug, PartialEq)]
-pub enum Error {
-    /// Origin does not have required permissions
-    InsufficientPermissions,
-    /// Account does not have any assigned role
-    NoRoleAssigned,
-    /// Data key already exists
-    DataAlreadyExists,
-    /// Data key not found
-    DataNotFound,
-    /// Invalid origin type
-    InvalidOrigin,
-}
-```
-
-### Origin Filtering Implementation:
-
-#### **Origin Filters:**
-    ```rust
-impl<T: Config> Pallet<T> {
-    /// Ensure origin is admin
-    fn ensure_admin(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
-        let role = Self::get_role(account).ok_or(Error::NoRoleAssigned)?;
-        if role.is_admin() {
-            Ok(())
-        } else {
-            Err(Error::InsufficientPermissions)
-        }
-    }
-    
-    /// Ensure origin is moderator or above
-    fn ensure_moderator_or_above(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
-        let role = Self::get_role(account).ok_or(Error::NoRoleAssigned)?;
-        if role.is_moderator_or_above() {
-            Ok(())
-        } else {
-            Err(Error::InsufficientPermissions)
-        }
-    }
-    
-    /// Ensure origin is member or above
-    fn ensure_member_or_above(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
-        let role = Self::get_role(account).ok_or(Error::NoRoleAssigned)?;
-        if role.is_member_or_above() {
-            Ok(())
-        } else {
-            Err(Error::InsufficientPermissions)
-        }
-    }
-    
-    /// Get role for an account
-    fn get_role(account: &T::AccountId) -> Option<Origin> {
-        // In a real implementation, this would query storage
-        None // Placeholder
-    }
-}
-```
-
-#### **Dispatchable Functions with Custom Origins:**
-    ```rust
-impl<T: Config> Pallet<T> {
-    /// Assign a role to an account (Admin only)
-    pub fn assign_role(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        target: T::AccountId,
-        role: Origin,
-    ) -> Result<(), Error> {
-        Self::ensure_admin(&origin, &caller)?;
-        
-        self.roles.insert(target.clone(), role.clone());
-        self.events.push(Event::RoleAssigned { 
-            account: target, 
-            role 
-        });
-        
-        Ok(())
-    }
-    
-    /// Revoke role from an account (Admin only)
-    pub fn revoke_role(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        target: T::AccountId,
-    ) -> Result<(), Error> {
-        Self::ensure_admin(&origin, &caller)?;
-        
-        self.roles.remove(&target);
-        self.events.push(Event::RoleRevoked { 
-            account: target 
-        });
-        
-        Ok(())
-    }
-    
-    /// Create data (Member or above)
-    pub fn create_data(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        key: String,
-        value: String,
-    ) -> Result<(), Error> {
-        Self::ensure_member_or_above(&origin, &caller)?;
-        
-        if self.managed_data.contains_key(&key) {
-            return Err(Error::DataAlreadyExists);
-        }
-        
-        self.managed_data.insert(key.clone(), value);
-        self.events.push(Event::DataCreated { 
-            key, 
-            creator: caller 
-        });
-        
-        Ok(())
-    }
-    
-    /// Update data (Moderator or above)
-    pub fn update_data(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        key: String,
-        new_value: String,
-    ) -> Result<(), Error> {
-        Self::ensure_moderator_or_above(&origin, &caller)?;
-        
-        if !self.managed_data.contains_key(&key) {
-            return Err(Error::DataNotFound);
-        }
-        
-        self.managed_data.insert(key.clone(), new_value);
-        self.events.push(Event::DataUpdated { 
-            key, 
-            updater: caller 
-        });
-        
-        Ok(())
-    }
-    
-    /// Delete data (Admin only)
-    pub fn delete_data(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        key: String,
-    ) -> Result<(), Error> {
-        Self::ensure_admin(&origin, &caller)?;
-        
-        if !self.managed_data.contains_key(&key) {
-            return Err(Error::DataNotFound);
-        }
-        
-        self.managed_data.remove(&key);
-        self.events.push(Event::DataDeleted { 
-            key, 
-            deleter: caller 
-        });
-        
-        Ok(())
-    }
-}
-```
-
-### Helper Functions:
-
-#### **Utility Methods:**
-        ```rust
-impl<T: Config> Pallet<T> {
+impl CounterPallet {
     pub fn new() -> Self {
         Self {
-            roles: std::collections::HashMap::new(),
-            managed_data: std::collections::HashMap::new(),
-            events: Vec::new(),
-            _phantom: std::marker::PhantomData,
+            counters: HashMap::new(),
         }
     }
     
-    /// Get all accounts with a specific role
-    pub fn get_accounts_with_role(&self, role: &Origin) -> Vec<T::AccountId> {
-        self.roles
-            .iter()
-            .filter(|(_, r)| *r == role)
-            .map(|(account, _)| account.clone())
-            .collect()
+    pub fn increment_counter(&mut self, name: String) -> u32 {
+        let counter = self.counters.entry(name).or_insert(0);
+        *counter = counter.saturating_add(1);
+        *counter
     }
     
-    /// Get data by key
-    pub fn get_data(&self, key: &str) -> Option<String> {
-        self.managed_data.get(key).cloned()
+    pub fn get_counter(&self, name: &str) -> Option<u32> {
+        self.counters.get(name).copied()
     }
     
-    /// Get all data keys
-    pub fn get_all_keys(&self) -> Vec<String> {
-        self.managed_data.keys().cloned().collect()
+    pub fn get_all_counters(&self) -> Vec<(String, u32)> {
+        self.counters.iter().map(|(k, v)| (k.clone(), *v)).collect()
+    }
+}
+```
+
+#### **RPC Trait Definition:**
+```rust
+/// RPC interface for counter operations
+pub trait CounterRpc {
+    /// Get the value of a specific counter
+    fn get_counter(&self, name: String) -> Result<Option<u32>, String>;
+    
+    /// Get all counters and their values
+    fn get_all_counters(&self) -> Result<Vec<(String, u32)>, String>;
+    
+    /// Get the total sum of all counters
+    fn get_total_sum(&self) -> Result<u32, String>;
+    
+    /// Get counters above a certain threshold
+    fn get_counters_above(&self, threshold: u32) -> Result<Vec<(String, u32)>, String>;
+}
+```
+
+#### **Runtime API Bridge:**
+    ```rust
+/// Bridge between RPC and runtime
+pub trait CounterRuntimeApi {
+    fn get_counter_value(&self, name: String) -> Option<u32>;
+    fn get_all_counter_values(&self) -> Vec<(String, u32)>;
+}
+
+/// Mock runtime API implementation
+pub struct MockRuntimeApi {
+    pallet: CounterPallet,
+}
+
+impl MockRuntimeApi {
+    pub fn new(pallet: CounterPallet) -> Self {
+        Self { pallet }
+    }
+}
+
+impl CounterRuntimeApi for MockRuntimeApi {
+    fn get_counter_value(&self, name: String) -> Option<u32> {
+        self.pallet.get_counter(&name)
     }
     
-    /// Take events for testing
-    pub fn take_events(&mut self) -> Vec<Event<T::AccountId>> {
-        std::mem::take(&mut self.events)
+    fn get_all_counter_values(&self) -> Vec<(String, u32)> {
+        self.pallet.get_all_counters()
+    }
+}
+```
+
+#### **RPC Implementation:**
+    ```rust
+pub struct CounterRpcImpl<Api> {
+    runtime_api: Api,
+}
+
+impl<Api> CounterRpcImpl<Api> {
+    pub fn new(runtime_api: Api) -> Self {
+        Self { runtime_api }
+    }
+}
+
+impl<Api: CounterRuntimeApi> CounterRpc for CounterRpcImpl<Api> {
+    fn get_counter(&self, name: String) -> Result<Option<u32>, String> {
+        Ok(self.runtime_api.get_counter_value(name))
+    }
+    
+    fn get_all_counters(&self) -> Result<Vec<(String, u32)>, String> {
+        Ok(self.runtime_api.get_all_counter_values())
+    }
+    
+    fn get_total_sum(&self) -> Result<u32, String> {
+        let counters = self.runtime_api.get_all_counter_values();
+        let sum = counters.iter().map(|(_, value)| value).sum();
+        Ok(sum)
+    }
+    
+    fn get_counters_above(&self, threshold: u32) -> Result<Vec<(String, u32)>, String> {
+        let counters = self.runtime_api.get_all_counter_values();
+        let filtered: Vec<(String, u32)> = counters
+            .into_iter()
+            .filter(|(_, value)| *value > threshold)
+            .collect();
+        Ok(filtered)
+    }
+}
+```
+
+### JSON-RPC Protocol Simulation:
+
+### Project Setup
+
+Before starting, you will need to configure the necessary dependencies:
+
+#### **Cargo.toml:**
+```toml
+[package]
+name = "counter-rpc-challenge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+```
+
+#### **How to configure (choose one option):**
+
+**Option 1 - Using cargo add (recommended):**
+```bash
+cargo add serde --features derive
+cargo add serde_json
+```
+
+**Option 2 - Editing Cargo.toml manually:**
+```bash
+# Edit the Cargo.toml file above and then run:
+cargo build
+```
+
+#### **RPC Request/Response Types:**
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcRequest {
+    pub jsonrpc: String,
+    pub method: String,
+    pub params: serde_json::Value,
+    pub id: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcResponse {
+    pub jsonrpc: String,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<RpcError>,
+    pub id: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RpcError {
+    pub code: i32,
+    pub message: String,
+}
+```
+
+#### **RPC Handler:**
+```rust
+pub struct RpcHandler<Rpc> {
+    counter_rpc: Rpc,
+}
+
+impl<Rpc: CounterRpc> RpcHandler<Rpc> {
+    pub fn new(counter_rpc: Rpc) -> Self {
+        Self { counter_rpc }
+    }
+    
+    pub fn handle_request(&self, request: RpcRequest) -> RpcResponse {
+        let result = match request.method.as_str() {
+            "counter_getCounter" => {
+                let name = match request.params.get("name") {
+                    Some(serde_json::Value::String(s)) => s.clone(),
+                    _ => return self.error_response(request.id, -32602, "Invalid params"),
+                };
+                
+                match self.counter_rpc.get_counter(name) {
+                    Ok(value) => serde_json::to_value(value).unwrap(),
+                    Err(e) => return self.error_response(request.id, -32603, &e),
+                }
+            },
+            "counter_getAllCounters" => {
+                match self.counter_rpc.get_all_counters() {
+                    Ok(counters) => serde_json::to_value(counters).unwrap(),
+                    Err(e) => return self.error_response(request.id, -32603, &e),
+                }
+            },
+            "counter_getTotalSum" => {
+                match self.counter_rpc.get_total_sum() {
+                    Ok(sum) => serde_json::to_value(sum).unwrap(),
+                    Err(e) => return self.error_response(request.id, -32603, &e),
+                }
+            },
+            "counter_getCountersAbove" => {
+                let threshold = match request.params.get("threshold") {
+                    Some(serde_json::Value::Number(n)) => n.as_u64().unwrap_or(0) as u32,
+                    _ => return self.error_response(request.id, -32602, "Invalid params"),
+                };
+                
+                match self.counter_rpc.get_counters_above(threshold) {
+                    Ok(counters) => serde_json::to_value(counters).unwrap(),
+                    Err(e) => return self.error_response(request.id, -32603, &e),
+                }
+            },
+            _ => return self.error_response(request.id, -32601, "Method not found"),
+        };
+        
+        RpcResponse {
+            jsonrpc: "2.0".to_string(),
+            result: Some(result),
+            error: None,
+            id: request.id,
+        }
+    }
+    
+    fn error_response(&self, id: u64, code: i32, message: &str) -> RpcResponse {
+        RpcResponse {
+            jsonrpc: "2.0".to_string(),
+            result: None,
+            error: Some(RpcError {
+                code,
+                message: message.to_string(),
+            }),
+            id,
+        }
     }
 }
 ```
@@ -295,47 +268,48 @@ impl<T: Config> Pallet<T> {
 
 Create comprehensive tests covering:
 
-1. **Role Management:**
-   - Test role assignment by admin
-   - Test role revocation by admin
-   - Test permission denial for non-admin role operations
+1. **Counter Pallet Operations:**
+   - Test counter increment functionality
+   - Test counter retrieval
+   - Test getting all counters
 
-2. **Permission Levels:**
-   - Test member-level operations (create data)
-   - Test moderator-level operations (update data)
-   - Test admin-level operations (delete data)
+2. **Runtime API:**
+   - Test runtime API bridge functionality
+   - Verify correct data flow from pallet to API
 
-3. **Access Control:**
-   - Test permission escalation prevention
-   - Test proper error handling for insufficient permissions
-   - Test role-based function access
+3. **RPC Implementation:**
+   - Test all RPC methods
+   - Verify correct return values
+   - Test error handling
 
-4. **Data Management:**
-   - Test data creation, update, and deletion
-   - Test error handling for duplicate/missing data
-   - Test proper event emission
+4. **JSON-RPC Protocol:**
+   - Test request/response serialization
+   - Test method routing
+   - Test error responses
+   - Test parameter validation
 
 ### Expected Output
 
-A complete custom origin system that:
-- Implements hierarchical permission levels
-- Properly filters function access based on roles
-- Demonstrates fine-grained access control
-- Shows understanding of FRAME origin system
+A complete RPC system that:
+- Provides external access to counter pallet state
+- Implements proper JSON-RPC protocol
 - Handles errors gracefully
+- Demonstrates separation between runtime and RPC layers
+- Shows understanding of blockchain external interfaces
 
 ### Theoretical Context
 
-**Custom Origins in FRAME:**
-- **Purpose:** Enable fine-grained access control beyond basic Root/Signed
-- **Implementation:** Custom enum types that implement origin traits
-- **Integration:** Works with FRAME's origin filtering system
-- **Use Cases:** Role-based access, governance systems, specialized permissions
+**RPC in Substrate:**
+- **Purpose:** Allows external applications to interact with the blockchain
+- **Architecture:** RPC layer → Runtime API → Pallet logic
+- **Protocol:** Uses JSON-RPC 2.0 standard
+- **State Queries:** Read blockchain state without submitting transactions
+- **Custom Methods:** Pallets can expose specialized query functions
 
-**Origin Filtering:**
-- Functions can specify required origin types
-- Runtime validates origins before dispatch
-- Enables complex permission hierarchies
-- Prevents unauthorized access to sensitive functions
+**Runtime API:**
+- Bridge between external RPC calls and runtime logic
+- Defined using `sp_api::decl_runtime_apis!` macro
+- Implemented in runtime using `impl_runtime_apis!` macro
+- Provides versioned interface for external queries
 
-This system is essential for building sophisticated governance and permission systems in Substrate-based blockchains.
+This system enables rich client applications and external integrations with the blockchain.

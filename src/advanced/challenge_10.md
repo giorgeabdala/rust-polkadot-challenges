@@ -1,149 +1,418 @@
-## Challenge 10: Simulating a Simple Storage Migration
+## Challenge 10: Transaction Pool and Prioritization
 
 **Difficulty Level:** Advanced
 **Estimated Time:** 2 hours
 
 ### Objective Description
 
-In this challenge, you will simulate a very basic storage migration for a "pallet". The idea is to understand how stored state can be transformed when a pallet's logic evolves.
+In this challenge, you will implement a simplified Transaction Pool system that simulates how transactions are stored, prioritized, and selected for inclusion in blocks. The focus is on understanding prioritization mechanisms, transaction dependencies, and removal policies.
 
-Let's consider two versions of a storage item:
-- **V1:** Stores a simple `u32` value.
-- **V2:** Stores a tuple `(u32, bool)`. The intention is that the `u32` is the value from V1, and the `bool` is a new indicator (for example, `is_migrated_data: true`).
+### Main Concepts Covered
 
-You will implement a structure that simulates a pallet's storage and a function that performs the migration from V1 to V2.
+1. **Transaction Pool**: Pool of pending transactions awaiting inclusion in blocks
+2. **Prioritization**: Priority system based on fees and importance
+3. **Dependencies**: Transactions that depend on others (sequential nonce)
+4. **Longevity**: Transaction lifetime in the pool
+5. **Block Building**: Transaction selection to form a block
 
-**Main Concepts Covered:**
-- **`Structs` and `Enums`:** To define the structure of our simulated "pallet" and storage versioning.
-- **`Option<T>`:** To represent values that may or may not exist in storage.
-- **Pattern Matching:** To handle different states and versions of storage.
-- **Migration Logic:** Implement data transformation from V1 to V2.
-- **Storage Versioning:** Control when migration should occur.
+### Structures to Implement
 
-### Structures to Implement:
-
-#### **`Config` Trait (Minimal):**
+#### **`TransactionHash`:**
 ```rust
-pub trait Config {
-    // For this challenge, can be empty or define types you find useful,
-    // but not strictly necessary for the main migration logic.
-    // Example: type Weight = u64; (for migration function return)
+pub type TransactionHash = [u8; 32];
+
+// Helper to generate simple hash
+pub fn simple_hash(data: &[u8]) -> TransactionHash {
+    let mut hash = [0u8; 32];
+    for (i, byte) in data.iter().enumerate() {
+        if i >= 32 { break; }
+        hash[i] = *byte;
+    }
+    hash
 }
 ```
 
-#### **`StorageVersion` Enum:**
+#### **`Transaction` Struct:**
 ```rust
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum StorageVersion {
-    V1_SimpleU32,
-    V2_U32WithFlag,
+#[derive(Clone, Debug, PartialEq)]
+pub struct Transaction {
+    pub hash: TransactionHash,
+    pub sender: String, // Simplified AccountId
+    pub nonce: u64,
+    pub priority: u64,
+    pub longevity: u64, // Blocks the transaction remains valid
+    pub requires: Vec<TransactionHash>, // Dependencies
+    pub provides: Vec<TransactionHash>, // What this transaction provides
+    pub data: Vec<u8>, // Transaction data
+}
+
+impl Transaction {
+    pub fn new(
+        sender: String,
+        nonce: u64,
+        priority: u64,
+        longevity: u64,
+        data: Vec<u8>,
+    ) -> Self {
+        let hash_input = format!("{}:{}:{}", sender, nonce, priority);
+        let hash = simple_hash(hash_input.as_bytes());
+        
+        // Generate provides based on sender and nonce
+        let provides_input = format!("{}:{}", sender, nonce);
+        let provides = vec![simple_hash(provides_input.as_bytes())];
+        
+        // Generate requires based on previous nonce (if > 0)
+        let requires = if nonce > 0 {
+            let requires_input = format!("{}:{}", sender, nonce - 1);
+            vec![simple_hash(requires_input.as_bytes())]
+        } else {
+            Vec::new()
+        };
+        
+        Self {
+            hash,
+            sender,
+            nonce,
+            priority,
+            longevity,
+            requires,
+            provides,
+            data,
+        }
+    }
 }
 ```
 
-#### **`PalletStorageSim<T: Config>` Struct:**
-This struct simulates our pallet's storage state.
+#### **`PoolStatus` Enum:**
 ```rust
-pub struct PalletStorageSim<T: Config> {
-    // Current version of storage schema.
-    pub current_version: StorageVersion,
-
-    // Simulates V1 storage. Contains value if version is V1_SimpleU32.
-    // Will be 'None' after successful migration to V2.
-    storage_v1_value: Option<u32>,
-
-    // Simulates V2 storage. Contains value if version is V2_U32WithFlag.
-    // Will be populated during migration.
-    storage_v2_value: Option<(u32, bool)>,
-
-    _phantom: core::marker::PhantomData<T>, // To use T: Config
+#[derive(Clone, Debug, PartialEq)]
+pub enum PoolStatus {
+    Ready,    // Ready for inclusion
+    Future,   // Waiting for dependencies
+    Invalid,  // Invalid (will be removed)
 }
 ```
 
-### Methods of `PalletStorageSim<T: Config>`:
+#### **`PoolTransaction` Struct:**
+```rust
+#[derive(Clone, Debug, PartialEq)]
+pub struct PoolTransaction {
+    pub transaction: Transaction,
+    pub status: PoolStatus,
+    pub inserted_at: u64, // Block when it was inserted
+    pub retries: u32,     // Inclusion attempts
+}
 
-#### **`pub fn new() -> Self`**
-- Initializes `current_version` to `StorageVersion::V1_SimpleU32`.
-- Initializes `storage_v1_value` and `storage_v2_value` to `None`.
+impl PoolTransaction {
+    pub fn new(transaction: Transaction, current_block: u64) -> Self {
+        Self {
+            transaction,
+            status: PoolStatus::Future, // Initially Future, will be promoted if possible
+            inserted_at: current_block,
+            retries: 0,
+        }
+    }
+    
+    pub fn is_expired(&self, current_block: u64) -> bool {
+        current_block > self.inserted_at + self.transaction.longevity
+    }
+    
+    pub fn can_be_included(&self) -> bool {
+        matches!(self.status, PoolStatus::Ready)
+    }
+}
+```
 
-#### **`pub fn set_initial_v1_value(&mut self, value: u32)`**
-- Sets `storage_v1_value` to `Some(value)`.
-- **Important:** This function should only have effect if `current_version` is `V1_SimpleU32`. If already in V2, you can choose to do nothing or return an error/panic (for this challenge, doing nothing is sufficient).
+#### **`TransactionPool` Struct:**
+```rust
+use std::collections::{HashMap, HashSet, BinaryHeap};
+use std::cmp::Ordering;
 
-#### **`pub fn get_current_v2_value(&self) -> Option<(u32, bool)>`**
-- Returns a copy of `storage_v2_value` **only if** `current_version` is `V2_U32WithFlag`. Otherwise, returns `None`.
+pub struct TransactionPool {
+    transactions: HashMap<TransactionHash, PoolTransaction>,
+    ready_queue: BinaryHeap<ReadyTransaction>, // Heap for prioritization
+    provided_tags: HashSet<TransactionHash>,   // Tags provided by ready transactions
+    current_block: u64,
+    max_pool_size: usize,
+}
 
-#### **`pub fn run_migration_if_needed(&mut self) -> u64 /* Simulated Weight */`**
-This function simulates the `on_runtime_upgrade` hook that would be called during a runtime upgrade.
-- Checks `self.current_version`:
-  - If `StorageVersion::V1_SimpleU32`:
-    - Performs migration:
-      - If `self.storage_v1_value` is `Some(old_val)`, then `self.storage_v2_value` becomes `Some((old_val, true))`.
-      - If `self.storage_v1_value` is `None`, then `self.storage_v2_value` becomes `None`.
-    - "Cleans" old storage: `self.storage_v1_value = None`.
-    - Updates version: `self.current_version = StorageVersion::V2_U32WithFlag`.
-    - Returns simulated "weight" (e.g., `2` to indicate 1 read and 2 writes - version and new value). If V1 value was `None`, weight can be `1` (1 version read, 1 version write).
-  - If already `StorageVersion::V2_U32WithFlag` (or any newer version, if there were any):
-    - No action needed.
-    - Returns weight `0`.
+// Wrapper for use in BinaryHeap (max-heap by priority)
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ReadyTransaction {
+    hash: TransactionHash,
+    priority: u64,
+    inserted_at: u64,
+}
+
+impl Ord for ReadyTransaction {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // First by priority (higher is better)
+        match self.priority.cmp(&other.priority) {
+            Ordering::Equal => {
+                // In case of tie, older is better (FIFO)
+                other.inserted_at.cmp(&self.inserted_at)
+            }
+            other => other,
+        }
+    }
+}
+
+impl PartialOrd for ReadyTransaction {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+```
+
+### Required Methods of `TransactionPool`
+
+#### **Constructor and Utilities:**
+```rust
+impl TransactionPool {
+    pub fn new(max_pool_size: usize) -> Self {
+        Self {
+            transactions: HashMap::new(),
+            ready_queue: BinaryHeap::new(),
+            provided_tags: HashSet::new(),
+            current_block: 0,
+            max_pool_size,
+        }
+    }
+    
+    pub fn set_current_block(&mut self, block_number: u64) {
+        self.current_block = block_number;
+        self.cleanup_expired();
+    }
+    
+    fn cleanup_expired(&mut self) {
+        let current_block = self.current_block;
+        let expired_hashes: Vec<TransactionHash> = self.transactions
+            .iter()
+            .filter(|(_, pool_tx)| pool_tx.is_expired(current_block))
+            .map(|(hash, _)| *hash)
+            .collect();
+        
+        for hash in expired_hashes {
+            self.remove_transaction(&hash);
+        }
+    }
+}
+```
+
+#### **Transaction Management:**
+```rust
+impl TransactionPool {
+    pub fn submit_transaction(&mut self, transaction: Transaction) -> Result<(), &'static str> {
+        // Check pool size limit
+        if self.transactions.len() >= self.max_pool_size {
+            return Err("Pool is full");
+        }
+        
+        // Check if transaction already exists
+        if self.transactions.contains_key(&transaction.hash) {
+            return Err("Transaction already in pool");
+        }
+        
+        let pool_transaction = PoolTransaction::new(transaction, self.current_block);
+        let hash = pool_transaction.transaction.hash;
+        
+        // Insert transaction
+        self.transactions.insert(hash, pool_transaction);
+        
+        // Try to promote to ready
+        self.update_transaction_status(&hash);
+        
+        Ok(())
+    }
+    
+    fn update_transaction_status(&mut self, hash: &TransactionHash) {
+        if let Some(pool_tx) = self.transactions.get_mut(hash) {
+            let can_be_ready = pool_tx.transaction.requires.iter()
+                .all(|required| self.provided_tags.contains(required));
+            
+            if can_be_ready && matches!(pool_tx.status, PoolStatus::Future) {
+                // Promote to ready
+                pool_tx.status = PoolStatus::Ready;
+                
+                // Add to ready queue
+                let ready_tx = ReadyTransaction {
+                    hash: *hash,
+                    priority: pool_tx.transaction.priority,
+                    inserted_at: pool_tx.inserted_at,
+                };
+                self.ready_queue.push(ready_tx);
+                
+                // Add provided tags
+                for provided in &pool_tx.transaction.provides {
+                    self.provided_tags.insert(*provided);
+                }
+                
+                // Check if other transactions can now be promoted
+                self.promote_future_transactions();
+            }
+        }
+    }
+    
+    fn promote_future_transactions(&mut self) {
+        let future_hashes: Vec<TransactionHash> = self.transactions
+            .iter()
+            .filter(|(_, pool_tx)| matches!(pool_tx.status, PoolStatus::Future))
+            .map(|(hash, _)| *hash)
+            .collect();
+        
+        for hash in future_hashes {
+            self.update_transaction_status(&hash);
+        }
+    }
+    
+    fn remove_transaction(&mut self, hash: &TransactionHash) {
+        if let Some(pool_tx) = self.transactions.remove(hash) {
+            // Remove from provided tags
+            for provided in &pool_tx.transaction.provides {
+                self.provided_tags.remove(provided);
+            }
+            
+            // Remove from ready queue (will be filtered out when popped)
+            // Note: BinaryHeap doesn't support efficient removal, so we'll filter when popping
+        }
+    }
+}
+```
+
+#### **Block Building:**
+```rust
+impl TransactionPool {
+    pub fn build_block(&mut self, max_transactions: usize) -> Vec<Transaction> {
+        let mut block_transactions = Vec::new();
+        let mut temp_ready_queue = BinaryHeap::new();
+        
+        // Extract transactions from ready queue
+        while let Some(ready_tx) = self.ready_queue.pop() {
+            // Check if transaction still exists and is ready
+            if let Some(pool_tx) = self.transactions.get(&ready_tx.hash) {
+                if pool_tx.can_be_included() && block_transactions.len() < max_transactions {
+                    block_transactions.push(pool_tx.transaction.clone());
+                    
+                    // Remove from pool
+                    self.remove_transaction(&ready_tx.hash);
+                } else if pool_tx.can_be_included() {
+                    // Put back in queue if we've reached max transactions
+                    temp_ready_queue.push(ready_tx);
+                }
+                // If not ready anymore, just discard
+            }
+        }
+        
+        // Restore remaining ready transactions to queue
+        self.ready_queue = temp_ready_queue;
+        
+        block_transactions
+    }
+    
+    pub fn get_ready_count(&self) -> usize {
+        self.ready_queue.len()
+    }
+    
+    pub fn get_future_count(&self) -> usize {
+        self.transactions.values()
+            .filter(|pool_tx| matches!(pool_tx.status, PoolStatus::Future))
+            .count()
+    }
+    
+    pub fn get_total_count(&self) -> usize {
+        self.transactions.len()
+    }
+}
+```
+
+#### **Query Methods:**
+```rust
+impl TransactionPool {
+    pub fn get_transaction(&self, hash: &TransactionHash) -> Option<&PoolTransaction> {
+        self.transactions.get(hash)
+    }
+    
+    pub fn get_transactions_by_sender(&self, sender: &str) -> Vec<&PoolTransaction> {
+        self.transactions.values()
+            .filter(|pool_tx| pool_tx.transaction.sender == sender)
+            .collect()
+    }
+    
+    pub fn get_ready_transactions(&self) -> Vec<&Transaction> {
+        self.ready_queue.iter()
+            .filter_map(|ready_tx| {
+                self.transactions.get(&ready_tx.hash)
+                    .map(|pool_tx| &pool_tx.transaction)
+            })
+            .collect()
+    }
+}
+```
 
 ### Tests
 
-Create a `tests` module and use a simple `TestConfig` struct.
+Create comprehensive tests covering:
 
-**Test Scenarios:**
+#### **Test Scenarios:**
 
-1. **Initialization:**
-   - Verify that `PalletStorageSim::new()` sets `current_version` to `V1_SimpleU32` and values to `None`.
+1. **Basic Operations:**
+   - Test transaction submission
+   - Test pool size limits
+   - Test duplicate transaction rejection
 
-2. **Set V1 Value:**
-   - Create pallet, call `set_initial_v1_value(100)`.
-   - Verify that `storage_v1_value` is `Some(100)`.
-   - Verify that `get_current_v2_value()` returns `None`.
+2. **Dependency Management:**
+   - Test sequential nonce dependencies
+   - Test transaction promotion from Future to Ready
+   - Test dependency chain resolution
 
-3. **Migration with Existing Value:**
-   - Set a V1 value (e.g., `100`).
-   - Call `run_migration_if_needed()`.
-   - Verify that `current_version` is `V2_U32WithFlag`.
-   - Verify that `storage_v1_value` is `None`.
-   - Verify that `storage_v2_value` is `Some((100, true))`.
-   - Verify that `get_current_v2_value()` returns `Some((100, true))`.
-   - Verify that returned weight is > 0.
+3. **Prioritization:**
+   - Test priority-based ordering in ready queue
+   - Test FIFO ordering for same priority
+   - Test block building with priority selection
 
-4. **Migration with Missing V1 Value:**
-   - Create pallet (without calling `set_initial_v1_value`).
-   - Call `run_migration_if_needed()`.
-   - Verify that `current_version` is `V2_U32WithFlag`.
-   - Verify that `storage_v1_value` is `None`.
-   - Verify that `storage_v2_value` is `None`.
-   - Verify that `get_current_v2_value()` returns `None`.
-   - Verify that returned weight is > 0 (due to version update).
+4. **Expiration and Cleanup:**
+   - Test transaction expiration based on longevity
+   - Test automatic cleanup on block advancement
+   - Test removal of expired transactions
 
-5. **Double Migration Attempt:**
-   - Perform successful migration.
-   - Call `run_migration_if_needed()` again.
-   - Verify that state (`current_version`, `storage_v1_value`, `storage_v2_value`) remains unchanged.
-   - Verify that returned weight is `0`.
+5. **Block Building:**
+   - Test block construction with max transaction limit
+   - Test transaction removal after inclusion
+   - Test ready queue management during block building
 
-6. **Attempt to Set V1 Value After Migration:**
-   - Perform migration.
-   - Try calling `set_initial_v1_value(200)`.
-   - Verify that `storage_v1_value` remains `None` (or the behavior you defined for this case) and `storage_v2_value` is not affected.
+6. **Edge Cases:**
+   - Test empty pool operations
+   - Test full pool behavior
+   - Test complex dependency chains
+   - Test mixed priority scenarios
 
 ### Expected Output
 
-A functional implementation of `PalletStorageSim<T>` and its methods, passing all unit tests. The code should clearly demonstrate migration logic and version control.
+A complete transaction pool system that:
+- Manages transaction lifecycle from submission to inclusion
+- Implements proper dependency resolution
+- Provides priority-based transaction ordering
+- Handles expiration and cleanup automatically
+- Supports efficient block building
+- Demonstrates understanding of transaction pool mechanics
 
 ### Theoretical Context
 
-**Runtime Upgrades:** In Substrate, the blockchain logic (the runtime, compiled to Wasm) can be updated on-chain. This allows the blockchain to evolve without hard forks.
+**Transaction Pool in Substrate:**
+- **Purpose**: Store and manage pending transactions before block inclusion
+- **Prioritization**: Based on fees, importance, and dependencies
+- **Dependencies**: Transactions can depend on others (e.g., nonce ordering)
+- **Lifecycle**: Submitted → Validated → Ready → Included/Expired
 
-**Storage Migrations:** When the structure of data stored by a pallet changes in a new runtime version, a storage migration is necessary. This migration is code that runs once during the upgrade to transform data from the old format to the new.
+**Key Concepts:**
+- **Ready Queue**: Transactions ready for immediate inclusion
+- **Future Queue**: Transactions waiting for dependencies
+- **Provides/Requires**: Tags system for dependency management
+- **Longevity**: How long transactions remain valid
 
-**`OnRuntimeUpgrade` Trait:** Pallets can implement this trait. Its `on_runtime_upgrade()` function is called by the `Executive` pallet during the runtime upgrade process, after the new runtime code is deployed, but before anything else (like `on_initialize` or transactions) is processed.
+**Block Production:**
+- Block producers select transactions from the ready queue
+- Selection considers priority, dependencies, and block limits
+- Included transactions are removed from the pool
 
-**`StorageVersion`:** It's common practice for pallets to maintain their own storage "schema" version. Migration logic checks this version to decide if migration should be executed.
-- `VersionedMigration` is a common helper for this in FRAME, but we're simulating the concept manually.
-
-**Importance:** Without correct migrations, the new runtime version could fail to read old data or interpret it incorrectly, leading to inconsistencies or panics.
-
-This simplified challenge focuses on the core mechanics of data transformation and versioning, which are crucial for understanding storage migrations in Substrate.
+This challenge demonstrates the critical infrastructure that manages transaction flow in blockchain systems, ensuring proper ordering and efficient block construction.
