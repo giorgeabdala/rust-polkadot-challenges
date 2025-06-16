@@ -1,4 +1,4 @@
-mod begginer;
+mod beginner;
 mod medium;
 mod advanced;
 

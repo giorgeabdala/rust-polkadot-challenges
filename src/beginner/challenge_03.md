@@ -62,8 +62,6 @@ println!("{}", process_message(warning)); // "Warning received!"
 Your tests should cover:
 - Each color variant and its description
 - Each message type and its processing
-- Pattern matching with data extraction
-- Using `if let` for simple cases
 
 Example test structure:
 ```rust
@@ -99,13 +97,6 @@ fn test_messages() {
 - **Pattern Matching**: Using `match` to handle all possible cases
 - **Destructuring**: Extracting data from enum variants
 - **Exhaustive Matching**: Compiler ensures all cases are handled
-
-## Bonus Challenges
-
-1. **Add more color variants** like `Yellow`, `Purple`, etc.
-2. **Create a `Priority` enum** for messages (Low, Medium, High)
-3. **Implement a simple state machine** using enums
-4. **Add methods to enums** using `impl` blocks
 
 ## Common Patterns to Practice
 

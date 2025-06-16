@@ -1,6 +1,6 @@
 # Challenge 2: Borrowing and References
 
-**Estimated Time:** 20 minutes  
+**Estimated Time:** 30 minutes  
 **Difficulty:** Beginner  
 **Topics:** Borrowing, References, Mutable References, Borrow Checker
 
@@ -32,6 +32,7 @@ Create a simple library system that demonstrates borrowing and references.
    - `books: Vec<Book>`
 
 3. **Implement methods:**
+   - `Book::new() -> Self`
    - `Library::new() -> Self`
    - `Library::add_book(&mut self, book: Book)`
    - `Library::find_book(&self, title: &str) -> Option<&Book>`
@@ -63,7 +64,6 @@ Write tests to verify:
 - Finding books returns correct references
 - Borrowing a book changes its availability
 - Returning a book makes it available again
-- Multiple immutable borrows work simultaneously
 
 ## Tips
 
@@ -77,11 +77,5 @@ Write tests to verify:
 - **Single Mutable Borrow**: Only one mutable reference at a time
 - **Borrow Checker**: Prevents data races and use-after-free bugs
 
-## Bonus Challenges
-
-1. **Implement a reservation system** where books can be reserved but not yet borrowed
-2. **Add book categories** and implement filtering with borrowed references
-3. **Create a method that takes a closure** operating on borrowed book data
-4. **Implement iterator methods** that return references to books
 
 The goal is to become comfortable with Rust's borrowing system and understand when to use owned values vs references. 

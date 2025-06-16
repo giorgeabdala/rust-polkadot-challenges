@@ -1,6 +1,6 @@
 # Challenge 1: Ownership and Move Semantics
 
-**Estimated Time:** 20 minutes  
+**Estimated Time:** 40 minutes  
 **Difficulty:** Beginner  
 **Topics:** Ownership, Move Semantics, Stack vs Heap
 
@@ -83,6 +83,5 @@ Write tests for:
 1. Add a `clone_player()` method that creates a copy instead of moving
 2. Implement `Display` trait for pretty printing
 3. Add a `reset_score()` method
-4. Create multiple players and demonstrate ownership rules
 
 Remember: The goal is to understand ownership, not to write complex code. Focus on seeing how values move and when you need to borrow vs own. 

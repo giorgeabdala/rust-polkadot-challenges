@@ -16,12 +16,10 @@
 // 7. Traits and Implementations (30min) - Basic trait system
 // 8. Lifetimes (40min) - Reference validity and lifetime annotations
 
-pub mod challenge_00;  // Environment Setup and First Steps
 pub mod challenge_01;  // Ownership and Move Semantics
-pub mod challenge_02;  // References and Borrowing
-pub mod challenge_03;  // Structs and Enums
-pub mod challenge_04;  // Pattern Matching
-pub mod challenge_05;  // Error Handling with Result<T,E>
 pub mod challenge_06;  // Collections and Iterators
-pub mod challenge_07;  // Traits and Implementations
-pub mod challenge_08;  // Lifetimes and Reference Validity 
+pub mod challenge_07;
+mod challenge_02;
+mod challenge_03;
+mod challenge_04;
+// Traits and Implementations
