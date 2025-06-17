@@ -1,42 +1,25 @@
-use std::fmt::Display;
+use std::ops::Add;
 
-pub trait Description {
-    fn describe(&self) -> String;
+pub trait Summable {
+    type Output;
+    fn sum_with(&self, other: &Self) -> Self::Output;
 }
 
-struct Store<T> {
-    value: T,
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Store<T> {
+    value: T
 }
 
-struct Describable<T>(pub T);
-
-impl<T> Store<T> {
-    pub fn new(value: T) -> Self {
-        Store { value }
+impl<T: Clone + Add<Output = T> + Copy> Store<T> {
+    pub fn new(v: T) -> Self {
+        Store{value: v}
     }
 }
 
-impl<T> Describable<T> {
-    pub fn new(value: T) -> Self {
-        Describable(value)
-    }
-}
-
-impl Description for Store<u32> {
-    fn describe(&self) -> String {
-        format!("Numeric value: {}", self.value)
-    }
-}
-
-impl Description for Store<&'static str> {
-    fn describe(&self) -> String {
-        format!("{} Hello, Rust", self.value)
-    }
-}
-
-impl<T: Display> Description for Describable<T> {
-    fn describe(&self) -> String {
-        format!("Content: {}", self.0)
+impl <T> Summable for Store<T> where T: Clone + Add<Output = T> + Copy, {
+    type Output = T;
+    fn sum_with(&self, other: &Self) -> T {
+        self.value + other.value
     }
 }
 
@@ -45,22 +28,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn describe_u32() {
-        let s = Store::new(100u32);
-        assert_eq!(s.describe(), "Numeric value: 100");
+    fn test_sum_with_u32() {
+        let a = Store::new(10u32);
+        let b = Store::new(20u32);
+        let result = a.sum_with(&b);
+        assert_eq!(result, 30u32);
     }
 
     #[test]
-    fn describe_str() {
-        let s = Store::new("Rust is Awesome!");
-        assert_eq!(s.describe(), "Rust is Awesome! Hello, Rust");
-    }
-
-    #[test]
-    fn describe_generic() {
-        let s = Describable::new(true);
-        assert_eq!(s.describe(), "Content: true");
+    fn test_sum_with_i64() {
+        let a = Store::new(-5i64);
+        let b = Store::new(15i64);
+        let result = a.sum_with(&b);
+        assert_eq!(result, 10i64);
     }
 }
 
-fn main() {} 
+fn main() {
+    let a = Store::new(30i64);
+    let b = Store::new(5i64);
+    println!("{}", a.sum_with(&b));
+} 

@@ -17,9 +17,8 @@
 // 8. Lifetimes (40min) - Reference validity and lifetime annotations
 
 pub mod challenge_01;  // Ownership and Move Semantics
-pub mod challenge_06;  // Collections and Iterators
-pub mod challenge_07;
 mod challenge_02;
 mod challenge_03;
 mod challenge_04;
+mod challenge_08;
 // Traits and Implementations

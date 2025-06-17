@@ -1,0 +1,69 @@
+
+
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() { x } else { y }
+}
+
+fn first_word<'a>(s: &'a str) -> &'a str {
+    let mut words = s.split_ascii_whitespace();
+    words.next().unwrap()
+}
+
+#[derive(PartialEq)]
+struct TextAnalyzer<'a> {
+    text: &'a str,
+}
+
+impl<'a> TextAnalyzer<'a> {
+    fn new(text: &'a str) -> TextAnalyzer<'a> {
+        TextAnalyzer {text}
+    }
+
+    fn word_count(&self) -> usize {
+        let iter = self.text.split_ascii_whitespace();
+        iter.count()
+    }
+
+    fn get_text(&self) -> &'a str {
+        &self.text
+    }
+
+}
+
+
+mod tests {
+    use crate::beginner::challenge_08::{first_word, longest, TextAnalyzer};
+
+    #[test]
+    fn longest_test() {
+        let string_a = "A";
+        let string_b = "AA";
+        let longest = longest(string_a, string_b);
+        assert_eq!(longest, string_b);
+    }
+
+    #[test]
+    fn first_word_test() {
+        let words = "first second";
+        let first_word = first_word(words);
+        assert_eq!(first_word, "first");
+    }
+    #[test]
+    fn word_count_test() {
+        let words = "first second";
+        let analyzer = TextAnalyzer::new(words);
+        let count = analyzer.word_count();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn get_text_test() {
+        let words = "first second";
+        let analyzer = TextAnalyzer::new(words);
+        let text = analyzer.get_text();
+        assert_eq!(text, words);
+    }
+
+
+
+}
