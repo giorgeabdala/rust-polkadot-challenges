@@ -1,8 +1,8 @@
 # Challenge 5: Result<T, E> - Error Handling
 
-**Estimated Time:** 35 minutes  
+**Estimated Time:** 45 minutes  
 **Difficulty:** Beginner  
-**Topics:** Result<T, E>, Error Handling, Pattern Matching
+**Topics:** Result<T, E>, Error Handling, Pattern Matching, Error Propagation
 
 ## Learning Objectives
 
@@ -33,6 +33,14 @@ Create simple operations that demonstrate error handling with `Result<T, E>`.
 2. **Implement functions that return `Result<T, E>`:**
    - `safe_divide(a: i32, b: i32) -> Result<i32, SimpleError>`
    - `parse_positive(s: &str) -> Result<i32, SimpleError>`
+
+3. **Create a chain of operations using `?` operator:**
+   - `multiple_operations() -> Result<i32, SimpleError>`
+   - Demonstrate error propagation without explicit match
+
+4. **Implement basic error conversion using `From` trait:**
+   - Convert from `std::num::ParseIntError` to `SimpleError`
+   - Enable automatic conversion with `?` operator
 
 ### Expected Behavior
 
@@ -65,6 +73,13 @@ match parse_positive("-5") {
 // Using unwrap_or for defaults
 let safe_result = safe_divide(10, 0).unwrap_or(0);
 println!("Safe result: {}", safe_result); // "Safe result: 0"
+
+// Error propagation with ? operator
+fn calculate_average(numbers: &[&str]) -> Result<i32, SimpleError> {
+    let a = parse_positive(numbers[0])?;
+    let b = parse_positive(numbers[1])?;
+    safe_divide(a + b, 2)
+}
 ```
 
 ## Testing
@@ -121,10 +136,9 @@ fn test_positive_parsing() {
 
 ## Bonus Challenges
 
-1. **Add more error variants** like `Overflow` or `InvalidFormat`
-2. **Create a chain of operations** using the `?` operator
-3. **Implement error conversion** using `From` trait
-4. **Add context to errors** with additional information
+⚠️ **Optional - For Deeper Exploration Only**
+
+1. **Add context to errors** with additional information (file names, line numbers, etc.)
 
 ## Common Patterns
 

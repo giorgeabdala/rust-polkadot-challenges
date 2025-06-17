@@ -79,3 +79,9 @@ Write tests to verify:
 
 
 The goal is to become comfortable with Rust's borrowing system and understand when to use owned values vs references. 
+
+## Bonus Challenges
+
+⚠️ **Optional - For Deeper Exploration Only**
+
+1. **Advanced borrowing patterns** - Practice with multiple references and lifetime constraints 

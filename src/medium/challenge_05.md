@@ -248,8 +248,7 @@ Substrate's async usage:
 
 ## Bonus Challenges
 
-1. Create a `BlockSubscription` that streams new blocks
-2. Implement a connection pool for multiple blockchain clients
-3. Add metrics collection for async operations
-4. Create a generic `AsyncCache<K, V>` trait
-5. Implement graceful shutdown for long-running async tasks 
+⚠️ **For Advanced Exploration - Substrate Preparation**
+
+1. **Concurrent async operations** - Practice patterns used in Substrate networking
+2. **Async error handling strategies** - Advanced error propagation in async contexts 

@@ -95,4 +95,10 @@ fn test_sum_with_f64() {
 - **Generic Structs**: Writing code that works with multiple types
 - **Trait Bounds**: Constraining generic types to have certain capabilities
 - **Associated Types**: Flexible trait design
-- **Zero-Cost Abstractions**: Generics compile to specific code for each type used 
+- **Zero-Cost Abstractions**: Generics compile to specific code for each type used
+
+## Bonus Challenges
+
+⚠️ **Optional - For Deeper Exploration Only**
+
+1. **Trait objects and dynamic dispatch** - Practice patterns used in Substrate's runtime architecture 

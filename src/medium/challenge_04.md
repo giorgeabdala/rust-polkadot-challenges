@@ -219,8 +219,7 @@ Substrate's error handling patterns:
 
 ## Bonus Challenges
 
-1. Create a `TransactionError` that includes transaction context
-2. Implement error recovery strategies for different error types
-3. Add logging integration with error levels
-4. Create a generic `Retryable<T, E>` wrapper for retry logic
-5. Implement error aggregation for batch operations
+⚠️ **For Advanced Exploration - Substrate Preparation**
+
+1. **Error trait implementation** - Implement `std::error::Error` for custom types
+2. **Error chaining and context** - Practice patterns used in blockchain error handling

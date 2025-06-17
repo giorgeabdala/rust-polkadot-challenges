@@ -86,7 +86,7 @@ The existing code includes a basic test. Expand it to verify:
 
 ## Bonus Challenges
 
-1. Add a `Pet` trait with methods like `feed()` and `play()`
-2. Create trait objects using `Box<dyn Animal>`
-3. Implement multiple traits for the same type
-4. Add associated types to traits 
+⚠️ **Optional - For Deeper Exploration Only**
+
+1. **Advanced iterator patterns** - Practice `filter_map`, `fold`, and custom iterators
+2. **Performance comparison** - Compare different collection operations 

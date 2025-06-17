@@ -86,3 +86,9 @@ Focus on understanding when you get `Some` vs `None` and how to handle both case
 - **Null Safety**: No null pointer exceptions possible
 - **Explicit Handling**: Must handle both `Some` and `None` cases
 - **Safe Defaults**: Using `unwrap_or` for fallback values 
+
+## Bonus Challenges
+
+⚠️ **Optional - For Deeper Exploration Only**
+
+1. **Advanced pattern matching** - Practice guards and multiple patterns for complex conditions 

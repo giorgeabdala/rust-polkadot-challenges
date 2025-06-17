@@ -118,4 +118,10 @@ fn test_messages() {
    }
    ```
 
-The goal is to become comfortable with Rust's enum system and pattern matching, which are fundamental to writing idiomatic Rust code. 
+The goal is to become comfortable with Rust's enum system and pattern matching, which are fundamental to writing idiomatic Rust code.
+
+## Bonus Challenges
+
+⚠️ **Optional - For Deeper Exploration Only**
+
+1. **Advanced pattern matching** - Practice complex destructuring patterns used in blockchain state machines 

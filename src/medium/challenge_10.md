@@ -398,8 +398,7 @@ Substrate's testing practices:
 
 ## Bonus Challenges
 
-1. Add property-based testing with `proptest` crate
-2. Create mock objects for testing complex interactions
-3. Implement test coverage reporting
-4. Add stress tests for concurrent operations
-5. Create automated documentation generation with custom examples 
+⚠️ **For Advanced Exploration - Substrate Preparation**
+
+1. **Blockchain-specific testing patterns** - Property-based testing for consensus algorithms
+2. **Performance benchmarking** - Critical for blockchain optimization and weight calculation 

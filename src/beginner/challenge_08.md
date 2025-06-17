@@ -99,3 +99,9 @@ Focus on understanding why lifetime annotations are needed and what they mean.
 - **Lifetime Annotations**: Explicit relationships between references
 - **Borrow Checker**: Compile-time memory safety verification
 - **Common Patterns**: Input-output relationships and struct references 
+
+## Bonus Challenges
+
+⚠️ **Optional - For Deeper Exploration Only**
+
+1. **Complex lifetime relationships** - Practice patterns used in Substrate's storage references 

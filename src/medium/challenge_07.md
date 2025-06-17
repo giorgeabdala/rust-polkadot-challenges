@@ -1,8 +1,8 @@
 # Challenge 7: Macros and Metaprogramming
 
-**Estimated Time:** 50 minutes  
+**Estimated Time:** 60 minutes  
 **Difficulty:** Medium  
-**Topics:** Declarative Macros, Procedural Macros, Code Generation, Macro Patterns
+**Topics:** Declarative Macros, Procedural Macros, Code Generation, Macro Patterns, Performance Benchmarking
 
 ## Learning Objectives
 
@@ -83,7 +83,24 @@ Create a macro system for generating blockchain storage and event types.
    }
    ```
 
-4. **Create utility macros:**
+4. **Create a simple `benchmark!` macro** for performance testing:
+   ```rust
+   macro_rules! benchmark {
+       (
+           $name:ident: $setup:block => $code:block
+       ) => {
+           fn $name() {
+               $setup
+               let start = std::time::Instant::now();
+               $code
+               let duration = start.elapsed();
+               println!("{}: {:?}", stringify!($name), duration);
+           }
+       };
+   }
+   ```
+
+5. **Create utility macros:**
    - `impl_getter!` for generating getter methods
    - `impl_setter!` for generating setter methods
    - `count_items!` for counting macro arguments
@@ -146,24 +163,7 @@ event.emit();
    }
    ```
 
-2. **Create a `benchmark!` macro** for performance testing:
-   ```rust
-   macro_rules! benchmark {
-       (
-           $name:ident: $setup:block => $code:block
-       ) => {
-           fn $name() {
-               $setup
-               let start = std::time::Instant::now();
-               $code
-               let duration = start.elapsed();
-               println!("{}: {:?}", stringify!($name), duration);
-           }
-       };
-   }
-   ```
-
-3. **Create recursive macros:**
+2. **Create recursive macros:**
    ```rust
    macro_rules! count_tts {
        () => { 0 };
@@ -283,8 +283,7 @@ Substrate's macro usage:
 
 ## Bonus Challenges
 
-1. Create a `state_machine!` macro for generating state transitions
-2. Implement a `sql!` macro for compile-time SQL validation
-3. Create a `config!` macro for configuration management
-4. Build a `test_suite!` macro for generating test cases
-5. Implement a `derive_storage!` procedural macro (conceptually)
+⚠️ **For Advanced Exploration - Substrate Preparation**
+
+1. **Procedural macro concepts** - Understand how Substrate's derive macros work
+2. **Advanced macro patterns** - Practice complex token manipulation for runtime generation

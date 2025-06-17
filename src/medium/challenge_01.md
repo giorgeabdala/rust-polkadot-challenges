@@ -116,7 +116,7 @@ This pattern mirrors Substrate's storage design:
 
 ## Bonus Challenges
 
-1. Add a `remove_user()` method that maintains all indexes
-2. Implement user groups with nested collections
-3. Add statistics methods using iterator combinators
-4. Create a generic `IndexedCollection<K, V>` trait 
+⚠️ **For Advanced Exploration**
+
+1. **Performance optimization** - Compare HashMap vs BTreeMap performance characteristics
+2. **Advanced iterator patterns** - Chain complex operations with iterators 

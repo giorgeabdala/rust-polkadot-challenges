@@ -274,8 +274,7 @@ SCALE codec in Substrate:
 
 ## Bonus Challenges
 
-1. Implement `MaxEncodedLen` trait for compile-time size bounds
-2. Create a streaming decoder for large data
-3. Add compression support for repetitive data
-4. Implement schema evolution with version compatibility
-5. Create a codec benchmark suite comparing with other formats 
+⚠️ **For Advanced Exploration - Substrate Preparation**
+
+1. **Custom derive macros** - Understand procedural macros used in Substrate
+2. **Performance-critical encoding** - Optimize for blockchain storage efficiency 

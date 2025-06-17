@@ -129,9 +129,9 @@ This mirrors Substrate's architecture:
 
 ## Bonus Challenges
 
-1. Add a `Queryable` trait with generic query methods
-2. Implement a generic `Index<T>` trait for different indexing strategies
-3. Create a `StorageProvider` trait that abstracts storage backends
-4. Add generic error types with associated type bounds
+⚠️ **For Advanced Exploration - Substrate Preparation**
+
+1. **Generic error types with associated type bounds** - Practice complex trait relationships  
+2. **Trait object patterns** - Use `Box<dyn Trait>` for dynamic dispatch similar to Substrate's approach
 
 ---

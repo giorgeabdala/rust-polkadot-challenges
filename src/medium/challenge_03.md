@@ -176,7 +176,7 @@ Substrate uses lifetimes for:
 
 ## Bonus Challenges
 
-1. Create a `ConfigBuilder` with method chaining and lifetimes
-2. Implement a `ConfigWatcher` that holds references to multiple configs
-3. Add a `validate_config` function with complex lifetime relationships
-4. Create a generic `Cache<'a, T>` with lifetime parameters
+⚠️ **For Advanced Exploration**
+
+1. **Complex lifetime relationships** - Practice with multiple lifetime parameters and bounds
+2. **Lifetime elision rules** - Understand when explicit annotations are needed

@@ -354,8 +354,7 @@ Substrate's concurrency patterns:
 
 ## Bonus Challenges
 
-1. Create a `ThreadPool` with work stealing
-2. Implement a `LockFreeQueue` using atomics
-3. Build a `DistributedCounter` across multiple threads
-4. Create a `Barrier` synchronization primitive
-5. Implement a `ReadWriteLock` with writer preference 
+⚠️ **For Advanced Exploration - Substrate Preparation**
+
+1. **Lock-free programming** - Understand atomic operations in blockchain contexts
+2. **Performance profiling** - Measure and optimize concurrent blockchain operations 

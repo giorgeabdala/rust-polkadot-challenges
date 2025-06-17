@@ -4,18 +4,18 @@ A comprehensive Rust course focused on Polkadot SDK/Substrate development, struc
 
 ## 📚 Course Structure
 
-### 🟢 **Beginner Level** (9 challenges - 4h00min)
+### 🟢 **Beginner Level** (9 challenges - 4h15min)
 Essential Rust fundamentals:
 - Environment Setup and Cargo Basics
 - Ownership and Borrowing
 - Structs and Enums  
 - Pattern Matching
-- Basic Error Handling
+- Basic Error Handling with Propagation
 - Basic Collections
 
 **Dependencies:** Standard library only ✅
 
-### 🟡 **Medium Level** (10 challenges - 6h45min)
+### 🟡 **Medium Level** (10 challenges - 6h55min)
 Intermediate concepts for Substrate:
 - Advanced Collections
 - Generics and Traits
@@ -23,7 +23,7 @@ Intermediate concepts for Substrate:
 - Advanced Error Handling
 - Async Programming ⚠️
 - SCALE Codec
-- Macros
+- Macros and Performance Benchmarking
 - Smart Pointers
 - Concurrency
 - Testing and Documentation ⚠️
@@ -130,7 +130,19 @@ This course prepares you for:
 2. **Read completely:** Each challenge has context and examples
 3. **Implement first:** Try to solve before looking at solutions
 4. **Always test:** Use `cargo test` and `cargo check`
-5. **Explore bonuses:** Extra challenges for deeper learning
+5. **Explore bonuses:** ⚠️ Optional advanced concepts - only for deeper exploration
+
+⏱️ **Time Estimates:** All estimated times include only the core requirements and basic testing. Bonus challenges (marked with ⚠️) are optional advanced concepts that require additional time and are designed for students who want deeper exploration of specific topics.
+
+**📊 Total Course Time:**
+- **Core Requirements Only:** 19h10min (4h15min + 6h55min + 8h)
+- **With All Bonus Challenges:** ~25h30min (+30-35% additional time)
+- **Recommended Pace:** 2-3 challenges per week for steady progress
+
+**🎯 Bonus Challenge Philosophy:** We've streamlined bonus challenges to focus only on concepts that are either:
+- Essential patterns used in Substrate development
+- Advanced exploration for students seeking deeper understanding
+- Previously, many bonus challenges were simply "more of the same" - these have been removed to reduce cognitive load
 
 ## 🔧 Requirements
 

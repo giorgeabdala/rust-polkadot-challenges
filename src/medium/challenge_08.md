@@ -280,8 +280,7 @@ Substrate's smart pointer usage:
 
 ## Bonus Challenges
 
-1. Create a `Pool<T>` using smart pointers for object reuse
-2. Implement a `LazyCell<T>` for lazy initialization
-3. Build a `SharedState<T>` with reader-writer semantics
-4. Create a `CycleDetector` for finding reference cycles
-5. Implement a custom allocator using `Box<T>` 
+⚠️ **For Advanced Exploration - Substrate Preparation**
+
+1. **Memory layout optimization** - Understand blockchain storage efficiency
+2. **Custom smart pointer patterns** - Practice patterns used in Substrate runtime 
