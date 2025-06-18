@@ -2,166 +2,150 @@
 
 **Estimated Time:** 45 minutes  
 **Difficulty:** Beginner  
-**Topics:** Result<T, E>, Error Handling, Pattern Matching, Error Propagation
+**Topics:** Result<T, E>, Error Handling, Pattern Matching
 
 ## Learning Objectives
 
-By completing this challenge, you will understand:
-- How `Result<T, E>` represents operations that can fail
-- Pattern matching with `Ok` and `Err`
-- Basic error handling patterns
-- When to use `Result<T, E>` vs `Option<T>`
+- Understand how `Result<T, E>` represents operations that can fail
+- Practice pattern matching with `Ok` and `Err`
+- Learn basic error handling patterns
+- Use the `?` operator for error propagation
 
-## Background
+## What You Need to Implement
 
-Rust uses `Result<T, E>` for error handling instead of exceptions:
-- `Ok(T)` - contains the successful result of type T
-- `Err(E)` - contains the error of type E
-
-This makes errors explicit and forces you to handle them.
-
-## Challenge
-
-Create simple operations that demonstrate error handling with `Result<T, E>`.
-
-### Requirements
-
-1. **Create a `SimpleError` enum** with variants:
-   - `InvalidInput`
-   - `OutOfRange`
-
-2. **Implement functions that return `Result<T, E>`:**
-   - `safe_divide(a: i32, b: i32) -> Result<i32, SimpleError>`
-   - `parse_positive(s: &str) -> Result<i32, SimpleError>`
-
-3. **Create a chain of operations using `?` operator:**
-   - `multiple_operations() -> Result<i32, SimpleError>`
-   - Demonstrate error propagation without explicit match
-
-4. **Implement basic error conversion using `From` trait:**
-   - Convert from `std::num::ParseIntError` to `SimpleError`
-   - Enable automatic conversion with `?` operator
-
-### Expected Behavior
-
+### Step 1: Create an Error Type
+Create a `SimpleError` enum with these variants:
 ```rust
-// Successful operation
-match safe_divide(10, 2) {
-    Ok(result) => println!("Result: {}", result), // "Result: 5"
-    Err(e) => println!("Error: {:?}", e),
-}
-
-// Error case
-match safe_divide(10, 0) {
-    Ok(result) => println!("Result: {}", result),
-    Err(SimpleError::InvalidInput) => println!("Cannot divide by zero!"),
-    Err(e) => println!("Other error: {:?}", e),
-}
-
-// Parsing examples
-match parse_positive("42") {
-    Ok(num) => println!("Parsed: {}", num), // "Parsed: 42"
-    Err(e) => println!("Parse error: {:?}", e),
-}
-
-match parse_positive("-5") {
-    Ok(num) => println!("Parsed: {}", num),
-    Err(SimpleError::OutOfRange) => println!("Number must be positive!"),
-    Err(e) => println!("Other error: {:?}", e),
-}
-
-// Using unwrap_or for defaults
-let safe_result = safe_divide(10, 0).unwrap_or(0);
-println!("Safe result: {}", safe_result); // "Safe result: 0"
-
-// Error propagation with ? operator
-fn calculate_average(numbers: &[&str]) -> Result<i32, SimpleError> {
-    let a = parse_positive(numbers[0])?;
-    let b = parse_positive(numbers[1])?;
-    safe_divide(a + b, 2)
+#[derive(Debug, PartialEq)]
+enum SimpleError {
+    InvalidInput,
+    OutOfRange,
 }
 ```
 
-## Testing
+### Step 2: Implement Core Functions
+Implement these **exact** functions:
 
-Your tests should demonstrate:
-- Successful operations returning `Ok(value)`
-- Error cases returning `Err(error)`
-- Pattern matching on different error types
-- Using `unwrap_or` for safe defaults
-
-Example test approach:
 ```rust
-#[test]
-fn test_successful_division() {
-    let result = safe_divide(10, 2);
-    assert_eq!(result, Ok(5));
-}
+// Returns Err(SimpleError::InvalidInput) if b is 0, otherwise Ok(a/b)
+fn safe_divide(a: i32, b: i32) -> Result<i32, SimpleError>
 
-#[test]
-fn test_division_by_zero() {
-    let result = safe_divide(10, 0);
-    match result {
-        Err(SimpleError::InvalidInput) => {}, // Expected
-        _ => panic!("Expected InvalidInput error"),
-    }
-}
+// Returns:
+// - Err(SimpleError::InvalidInput) if string can't be parsed to i32
+// - Err(SimpleError::OutOfRange) if number is negative or zero
+// - Ok(number) if valid positive integer
+fn parse_positive(s: &str) -> Result<i32, SimpleError>
 
-#[test]
-fn test_positive_parsing() {
-    let result = parse_positive("42");
-    assert_eq!(result, Ok(42));
-    
-    let result = parse_positive("-5");
-    match result {
-        Err(SimpleError::OutOfRange) => {}, // Expected
-        _ => panic!("Expected OutOfRange error"),
+// Chains operations using ? operator - parse two strings and divide them
+fn calculate_average(numbers: &[&str]) -> Result<i32, SimpleError>
+```
+
+### Step 3: Implement Error Conversion
+Make `SimpleError` convertible from `std::num::ParseIntError`:
+```rust
+impl From<std::num::ParseIntError> for SimpleError {
+    fn from(_: std::num::ParseIntError) -> Self {
+        SimpleError::InvalidInput
     }
 }
 ```
 
-## Tips
+## Exact Implementation Requirements
 
-- Use `Result<T, E>` for operations that can fail in expected ways
-- Create specific error types rather than using generic strings
-- Use pattern matching to handle different error cases
-- Use `unwrap_or()` to provide safe defaults
+**`safe_divide` function:**
+- Input: two i32 numbers
+- Return `Err(SimpleError::InvalidInput)` if second number is 0
+- Return `Ok(result)` with integer division otherwise
 
-## Key Learning Points
+**`parse_positive` function:**
+- Input: string slice
+- Parse the string to i32
+- Return `Err(SimpleError::InvalidInput)` if parsing fails
+- Return `Err(SimpleError::OutOfRange)` if number ≤ 0
+- Return `Ok(number)` if number > 0
 
-- **Explicit Error Handling**: All failures are represented as `Result<T, E>`
-- **Pattern Matching**: Handle both success and error cases
-- **Error Types**: Custom enums for different error conditions
-- **Safe Defaults**: Using `unwrap_or` for fallback values
+**`calculate_average` function:**
+- Input: slice of string 
+- Parse both strings using `parse_positive`
+- Add them together and divide by 2 using `safe_divide`
+- Use `?` operator to propagate any errors
+- Return the final result
 
-## Bonus Challenges
+## Required Tests
 
-⚠️ **Optional - For Deeper Exploration Only**
+Create these **exact** tests:
 
-1. **Add context to errors** with additional information (file names, line numbers, etc.)
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-## Common Patterns
+    #[test]
+    fn test_safe_divide_success() {
+        assert_eq!(safe_divide(10, 2), Ok(5));
+        assert_eq!(safe_divide(7, 3), Ok(2)); // Integer division
+    }
 
-1. **Basic Error Handling**:
-   ```rust
-   match operation() {
-       Ok(value) => println!("Success: {}", value),
-       Err(error) => println!("Failed: {:?}", error),
-   }
-   ```
+    #[test]
+    fn test_safe_divide_by_zero() {
+        assert_eq!(safe_divide(10, 0), Err(SimpleError::InvalidInput));
+    }
 
-2. **Safe Defaults**:
-   ```rust
-   let result = risky_operation().unwrap_or(default_value);
-   ```
+    #[test]
+    fn test_parse_positive_success() {
+        assert_eq!(parse_positive("42"), Ok(42));
+        assert_eq!(parse_positive("1"), Ok(1));
+    }
 
-3. **Error Propagation** (bonus):
-   ```rust
-   fn multiple_operations() -> Result<i32, SimpleError> {
-       let a = parse_positive("10")?;
-       let b = parse_positive("2")?;
-       safe_divide(a, b)
-   }
-   ```
+    #[test]
+    fn test_parse_positive_invalid_string() {
+        assert_eq!(parse_positive("abc"), Err(SimpleError::InvalidInput));
+        assert_eq!(parse_positive("12.5"), Err(SimpleError::InvalidInput));
+    }
 
-The goal is to become comfortable with Rust's explicit error handling and learn to write robust code that gracefully handles failure cases. 
+    #[test]
+    fn test_parse_positive_out_of_range() {
+        assert_eq!(parse_positive("-5"), Err(SimpleError::OutOfRange));
+        assert_eq!(parse_positive("0"), Err(SimpleError::OutOfRange));
+    }
+
+    #[test]
+    fn test_calculate_average_success() {
+        assert_eq!(calculate_average(&["10", "20"]), Ok(15));
+        assert_eq!(calculate_average(&["3", "7"]), Ok(5));
+    }
+
+    #[test]
+    fn test_calculate_average_parse_error() {
+        assert_eq!(calculate_average(&["abc", "5"]), Err(SimpleError::InvalidInput));
+    }
+
+    #[test]
+    fn test_calculate_average_range_error() {
+        assert_eq!(calculate_average(&["-1", "5"]), Err(SimpleError::OutOfRange));
+    }
+}
+```
+
+## Success Criteria
+
+✅ All tests pass  
+✅ Functions handle errors correctly  
+✅ `?` operator works for error propagation  
+✅ Pattern matching works on different error types  
+
+## Key Concepts You'll Practice
+
+- **Result<T, E>**: Rust's way of handling errors explicitly
+- **Pattern Matching**: Using `match` to handle `Ok` and `Err`
+- **Error Propagation**: Using `?` to pass errors up the call stack
+- **Custom Error Types**: Creating your own error enums
+
+## Background Info
+
+In Rust, we don't use exceptions. Instead:
+- `Ok(value)` means the operation succeeded
+- `Err(error)` means the operation failed
+- You must handle both cases explicitly
+
+The `?` operator is shorthand for "if this is an error, return it immediately; otherwise, unwrap the success value." 

@@ -22,6 +22,84 @@ Concurrency enables programs to handle multiple tasks simultaneously:
 - **Atomics**: Lock-free operations for simple data types
 - **Thread Safety**: Ensuring data races don't occur
 
+### 🎯 **Concurrency vs Parallelism**
+
+#### **Concurrency** - Dealing with multiple things at once (logical):
+```rust
+// One chef managing multiple orders (time-slicing)
+let mut chef = Chef::new();
+chef.start_cooking_pasta();    // Switch between tasks
+chef.check_pizza_oven();       // when waiting for others
+chef.plate_salad();
+```
+
+#### **Parallelism** - Doing multiple things at once (physical):
+```rust
+// Multiple chefs working simultaneously (true parallel)
+let chefs = vec![Chef::new(); 4];
+chefs.par_iter().enumerate().for_each(|(i, chef)| {
+    chef.cook_order(orders[i]);  // Each chef works independently
+});
+```
+
+### ⚠️ **Data Races vs Race Conditions**
+
+#### **Data Race** - Undefined behavior from unsynchronized access:
+```rust
+// ❌ DATA RACE: Two threads accessing same memory without synchronization
+static mut COUNTER: usize = 0;
+
+thread::spawn(|| unsafe { COUNTER += 1 });  // Thread 1
+thread::spawn(|| unsafe { COUNTER += 1 });  // Thread 2
+// Undefined behavior! Could corrupt memory
+```
+
+#### **Race Condition** - Logic error from timing dependencies:
+```rust
+// ✅ No data race (using Arc<Mutex>) but still has race condition
+let balance = Arc::new(Mutex::new(100));
+let b1 = balance.clone();
+let b2 = balance.clone();
+
+// Both threads check balance before withdrawing
+thread::spawn(move || {
+    let mut bal = b1.lock().unwrap();
+    if *bal >= 60 { *bal -= 60; }  // Check-then-act race
+});
+
+thread::spawn(move || {
+    let mut bal = b2.lock().unwrap();
+    if *bal >= 60 { *bal -= 60; }  // Both might withdraw!
+});
+```
+
+### 🆚 **Threads vs Async: When to Use What?**
+
+| Use Threads When | Use Async When |
+|------------------|----------------|
+| ✅ CPU-intensive work | ✅ I/O-bound operations |
+| ✅ Blocking operations | ✅ Network requests |
+| ✅ Parallel computation | ✅ File system operations |
+| ✅ Independent tasks | ✅ Thousands of connections |
+
+```rust
+// CPU-bound: Use threads
+let handles: Vec<_> = (0..num_cpus::get()).map(|_| {
+    thread::spawn(|| {
+        expensive_cpu_work();  // Utilize multiple cores
+    })
+}).collect();
+
+// I/O-bound: Use async
+async fn handle_requests() {
+    let futures: Vec<_> = requests.into_iter().map(|req| {
+        async move { process_request(req).await }  // Concurrent I/O
+    }).collect();
+    
+    futures::future::join_all(futures).await;
+}
+```
+
 Substrate uses threading for block processing, networking, and consensus algorithms.
 
 ## Challenge

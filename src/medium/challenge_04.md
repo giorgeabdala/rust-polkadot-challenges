@@ -21,6 +21,125 @@ Robust error handling is critical in blockchain systems where failures can have 
 - **Zero-cost abstractions**: No runtime overhead
 - **Exhaustive error checking**: Compiler ensures all errors are handled
 
+### 🎯 **Error Handling Philosophy in Rust**
+
+#### **Errors vs Panics:**
+```rust
+// Panics - for programmer errors (unrecoverable)
+assert!(index < len);               // Index out of bounds
+unwrap()                           // Development/prototyping
+expect("This should never happen") // With context
+
+// Results - for expected failures (recoverable)
+fn parse_number(s: &str) -> Result<i32, ParseIntError>
+fn read_file(path: &str) -> Result<String, io::Error>
+```
+
+#### **Error Categories:**
+- **Domain Errors**: Business logic violations (insufficient balance)
+- **System Errors**: I/O failures, network timeouts
+- **Protocol Errors**: Invalid data formats, version mismatches
+- **Resource Errors**: Out of memory, file not found
+
+### 🔧 **Error Type Design Patterns**
+
+#### **Hierarchical Error Types:**
+```rust
+// Top-level application error
+#[derive(Debug)]
+enum AppError {
+    Database(DatabaseError),
+    Network(NetworkError),
+    Validation(ValidationError),
+    Internal(String),
+}
+
+// Specific domain errors
+#[derive(Debug)]
+enum ValidationError {
+    InvalidEmail(String),
+    PasswordTooShort { min_length: usize, actual: usize },
+    UsernameExists(String),
+}
+```
+
+#### **Error Context Pattern:**
+```rust
+// Rich error context with debugging information
+#[derive(Debug)]
+struct ErrorContext {
+    message: String,
+    source: Option<Box<dyn std::error::Error>>,
+    location: &'static str,
+    timestamp: SystemTime,
+}
+
+impl ErrorContext {
+    fn new(msg: &str) -> Self {
+        Self {
+            message: msg.to_string(),
+            source: None,
+            location: std::panic::Location::caller(),
+            timestamp: SystemTime::now(),
+        }
+    }
+}
+```
+
+### 🔄 **Result Combinators Deep Dive**
+
+#### **Transforming Success Values:**
+```rust
+// map: Transform success value, preserve error
+let result: Result<i32, _> = "42".parse();
+let doubled = result.map(|x| x * 2);  // Result<i32, _>
+
+// map_or: Provide default for error case
+let value = result.map_or(0, |x| x * 2);  // i32 (not Result)
+
+// map_or_else: Compute default from error
+let value = result.map_or_else(|_| 0, |x| x * 2);
+```
+
+#### **Transforming Error Values:**
+```rust
+// map_err: Transform error type
+let result = parse_number("abc")
+    .map_err(|e| format!("Parse failed: {}", e));
+
+// Chain different error types
+fn complex_operation() -> Result<String, AppError> {
+    let data = read_file("config.txt")
+        .map_err(AppError::Io)?;
+    
+    let parsed = parse_config(&data)
+        .map_err(AppError::Parse)?;
+    
+    Ok(format!("Config: {:?}", parsed))
+}
+```
+
+#### **Chaining Operations:**
+```rust
+// and_then: Chain operations that can fail
+fn process_user(id: u32) -> Result<String, UserError> {
+    get_user(id)
+        .and_then(|user| validate_user(&user))
+        .and_then(|user| format_user_display(&user))
+        .map_err(|e| {
+            log::error!("Failed to process user {}: {:?}", id, e);
+            e
+        })
+}
+
+// or_else: Try alternative on failure
+fn get_data() -> Result<String, Error> {
+    read_from_cache()
+        .or_else(|_| read_from_database())
+        .or_else(|_| read_from_backup())
+}
+```
+
 Substrate uses sophisticated error handling throughout its runtime and pallets.
 
 ## Challenge

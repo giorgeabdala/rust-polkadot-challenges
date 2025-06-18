@@ -17,3 +17,5 @@
 // 8. Smart Pointers (40min) - Box, Rc, Arc, RefCell, memory management
 // 9. Concurrency and Threading (45min) - Threads, channels, synchronization
 // 10. Testing and Documentation (35min) - Unit tests, integration tests, docs
+
+mod challenge_01;
