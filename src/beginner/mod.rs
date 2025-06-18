@@ -20,5 +20,6 @@ pub mod challenge_01;  // Ownership and Move Semantics
 mod challenge_02;
 mod challenge_03;
 mod challenge_04;
+mod challenge_05;
 mod challenge_08;
 // Traits and Implementations

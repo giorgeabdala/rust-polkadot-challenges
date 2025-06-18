@@ -5,8 +5,7 @@ fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
 }
 
 fn first_word<'a>(s: &'a str) -> &'a str {
-    let mut words = s.split_ascii_whitespace();
-    words.next().unwrap()
+    s.split_ascii_whitespace().next().unwrap_or("")
 }
 
 #[derive(PartialEq)]
@@ -20,12 +19,12 @@ impl<'a> TextAnalyzer<'a> {
     }
 
     fn word_count(&self) -> usize {
-        let iter = self.text.split_ascii_whitespace();
+        let iter = self.text.split_whitespace();
         iter.count()
     }
 
     fn get_text(&self) -> &'a str {
-        &self.text
+        self.text
     }
 
 }
@@ -47,6 +46,19 @@ mod tests {
         let words = "first second";
         let first_word = first_word(words);
         assert_eq!(first_word, "first");
+    }
+
+    #[test]
+    fn first_word_empty_string_test() {
+        let words = "";
+        let first = first_word(words);
+        assert_eq!(first, "");
+    }
+    
+    #[test]
+    fn first_word_whitespace_string_test() {
+        let words = "     ";
+        assert_eq!(first_word(words), "");
     }
     #[test]
     fn word_count_test() {
