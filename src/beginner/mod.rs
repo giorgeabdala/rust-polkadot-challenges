@@ -22,4 +22,5 @@ mod challenge_03;
 mod challenge_04;
 mod challenge_05;
 mod challenge_08;
+mod challenge_07;
 // Traits and Implementations
