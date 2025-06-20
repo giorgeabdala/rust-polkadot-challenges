@@ -1,4 +1,6 @@
+#![allow(dead_code)]
 use std::collections::{BTreeMap, HashMap, HashSet};
+
 
 #[derive(Clone, PartialEq)]
 struct User {

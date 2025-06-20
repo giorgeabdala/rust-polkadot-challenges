@@ -1,4 +1,4 @@
-
+#![allow(dead_code)]
 
 #[derive(Clone, PartialEq, Debug)]
 struct Contact {

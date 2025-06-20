@@ -1,4 +1,4 @@
-
+#![allow(dead_code)]
 
 #[derive(Debug)]
 enum Color {

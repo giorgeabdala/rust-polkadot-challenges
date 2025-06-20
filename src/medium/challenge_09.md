@@ -430,9 +430,4 @@ Substrate's concurrency patterns:
 - Transaction pool with concurrent access
 - RPC server handling multiple requests
 
-## Bonus Challenges
-
-⚠️ **For Advanced Exploration - Substrate Preparation**
-
-1. **Lock-free programming** - Understand atomic operations in blockchain contexts
-2. **Performance profiling** - Measure and optimize concurrent blockchain operations 
+--- 

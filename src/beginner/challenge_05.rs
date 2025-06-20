@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::num::ParseIntError;
 
 #[derive(Debug, PartialEq)]

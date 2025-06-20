@@ -396,9 +396,4 @@ Substrate's testing practices:
 - Benchmarking for weight calculation
 - Documentation with examples for all public APIs
 
-## Bonus Challenges
-
-⚠️ **For Advanced Exploration - Substrate Preparation**
-
-1. **Blockchain-specific testing patterns** - Property-based testing for consensus algorithms
-2. **Performance benchmarking** - Critical for blockchain optimization and weight calculation 
+--- 

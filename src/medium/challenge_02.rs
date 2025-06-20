@@ -1,4 +1,7 @@
+#![allow(dead_code)]
 use std::collections::HashMap;
+
+
 
 trait Storable {
 
@@ -9,6 +12,7 @@ trait Storable {
     fn storage_key(&self) -> String { "default".to_string() }
 
 }
+
 
 struct Storage<T> where T: Storable + Clone{
     items: Vec<T>,
@@ -39,6 +43,7 @@ impl<T: Storable + Clone> Storage<T> {
     }
 
 }
+
 
 trait StorageMap {
     type Item: Storable;

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // Medium Level Challenges - Rust for Polkadot SDK Development
 // 
 // This module contains 10 intermediate-level challenges designed to bridge
@@ -20,3 +21,4 @@
 
 mod challenge_01;
 mod challenge_02;
+mod challenge_03;

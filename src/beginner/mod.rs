@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // Beginner Level Challenges - Rust for Polkadot SDK Development
 // 
 // This module contains 9 beginner-level challenges designed to introduce
