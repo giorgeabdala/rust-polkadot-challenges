@@ -1,6 +1,6 @@
 # Challenge 4: Advanced Error Handling
 
-**Estimated Time:** 40 minutes  
+**Estimated Time:** 70 minutes  
 **Difficulty:** Medium  
 **Topics:** Custom Error Types, Error Propagation, Result Combinators, Error Conversion
 
@@ -152,7 +152,6 @@ Create a transaction processing system with comprehensive error handling.
    ```rust
    #[derive(Debug, PartialEq)]
    enum ValidationError {
-       InvalidAmount(u64),
        InsufficientBalance { required: u64, available: u64 },
        AccountNotFound(String),
        InvalidSignature,
@@ -197,7 +196,7 @@ Create a transaction processing system with comprehensive error handling.
 5. **Implement error handling methods:**
    - `validate_transaction(&self, tx: &Transaction) -> Result<(), ValidationError>`
    - `process_transaction(&mut self, tx: Transaction) -> Result<String, ProcessingError>`
-   - `batch_process(&mut self, transactions: Vec<Transaction>) -> Result<Vec<String>, Vec<ProcessingError>>`
+   - `batch_process(&mut self, transactions: Vec<Transaction>) -> Vec<Result<String, ProcessingError>>`
    - `safe_transfer(&mut self, from: &str, to: &str, amount: u64) -> Result<(), ProcessingError>`
 
 ### Expected Behavior
@@ -228,7 +227,14 @@ match processor.process_transaction(tx) {
 // Batch processing with partial failures
 let transactions = vec![/* multiple transactions */];
 let results = processor.batch_process(transactions);
-// Handle mixed success/failure results
+
+// Handle mixed results
+for (i, result) in results.iter().enumerate() {
+    match result {
+        Ok(tx_id) => println!("Transaction {} processed: {}", i, tx_id),
+        Err(e) => println!("Transaction {} failed: {:?}", i, e),
+    }
+}
 ```
 
 ## Advanced Requirements
@@ -251,24 +257,6 @@ let results = processor.batch_process(transactions);
        processor.validate_transaction(&tx)
            .map_err(ProcessingError::from)
            .and_then(|_| processor.process_transaction(tx))
-   }
-   ```
-
-3. **Implement retry logic with error handling:**
-   ```rust
-   fn process_with_retry(
-       processor: &mut TransactionProcessor,
-       tx: Transaction,
-       max_retries: u32
-   ) -> Result<String, ProcessingError> {
-       // Implement retry logic for network errors
-   }
-   ```
-
-4. **Create error context helpers:**
-   ```rust
-   trait ErrorContext<T> {
-       fn with_context(self, context: &str) -> Result<T, ProcessingError>;
    }
    ```
 
@@ -302,15 +290,6 @@ Write tests that demonstrate:
    }
    ```
 
-3. **Combining Results:**
-   ```rust
-   fn transfer(&mut self, from: &str, to: &str, amount: u64) -> Result<(), ProcessingError> {
-       let from_account = self.get_account(from)?;
-       let to_account = self.get_account(to)?;
-       // Process transfer
-   }
-   ```
-
 ## Tips
 
 - Use `?` operator for clean error propagation
@@ -326,7 +305,6 @@ Write tests that demonstrate:
 - **Error Conversion**: Automatic conversion between error types
 - **Result Combinators**: Functional error handling patterns
 - **Error Context**: Providing useful debugging information
-
 ## Substrate Connection
 
 Substrate's error handling patterns:
