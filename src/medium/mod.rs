@@ -19,3 +19,4 @@
 // 10. Testing and Documentation (35min) - Unit tests, integration tests, docs
 
 mod challenge_01;
+mod challenge_02;
