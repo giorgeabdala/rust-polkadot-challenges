@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -44,7 +45,7 @@ fn clone_player(player: &Player) -> Player {
 }
 
 mod tests {
-    use super::*;
+    use crate::beginner::challenge_01::{clone_player, transfer_player, Player};
 
     #[test]
     fn new_player_test(){

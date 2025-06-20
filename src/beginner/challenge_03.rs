@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
 #[derive(Debug)]
 enum Color {
@@ -36,7 +37,7 @@ fn process_message(msg: Message) -> String {
 
 
 mod tests {
-    use super::*;
+    use crate::beginner::challenge_03::{describe_color, process_message, Color, Message};
 
     #[test]
     fn test_colors() {

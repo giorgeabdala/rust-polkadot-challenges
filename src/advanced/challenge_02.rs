@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::task::Context;
 
 #[derive(Debug, PartialEq)]
 pub struct Weight {

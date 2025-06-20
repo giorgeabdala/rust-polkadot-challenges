@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
 pub struct Book {
     title: String,
@@ -52,8 +53,8 @@ impl Library {
 }
 
 mod tests {
-    use super::*;
-    
+    use crate::beginner::challenge_02::{Book, Library};
+
     #[test]
     fn find_book_test() {
         let mut library = Library::new();
