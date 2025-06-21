@@ -1,222 +1,457 @@
-## Challenge 6: Unsigned Ping with Validation
+## Challenge 6: Unsigned Transactions with Validation
 
 **Difficulty Level:** Advanced
-**Estimated Time:** 2 hours
+**Estimated Time:** 1.5 hours
 
 ### Objective Description
 
-You will implement a simulated pallet that accepts an unsigned transaction called "ping". When valid, this transaction will record the current block number when it was received. The core part of the challenge is implementing the `ValidateUnsigned` trait to protect this functionality, primarily by limiting the frequency at which these pings can be sent to prevent spam.
+You will implement an unsigned transaction system with spam prevention and validation mechanisms. This challenge focuses on understanding how Substrate handles transactions that don't require signatures and how to implement proper validation to prevent network abuse.
 
-**Concepts and Structures to Implement/Simulate:**
-
-1. **`Pallet<T: Config>`:** The main struct of our pallet.
-   - Will store `last_ping_block: Option<T::BlockNumber>` to track the block of the last successful ping.
-   - Will maintain a list of emitted events: `emitted_events: Vec<Event>`.
-
-2. **`Config` Trait:**
-   - `type BlockNumber: ...` (with necessary operations like `Sub`, `PartialOrd`, `Copy`, `Default`).
-   - `type PingInterval: Get<Self::BlockNumber>;` (defines the minimum number of blocks that must pass between unsigned pings).
-
-3. **`Call<T: Config>` Enum:**
-   - Will contain one variant: `PingUnsigned`.
-
-4. **`Event` Enum:**
-   - `PingReceived { block_number: T::BlockNumber }`
-
-5. **`Error` Enum:**
-   - `TooEarlyToPing` (if a ping is attempted before the `PingInterval`).
-   - `InvalidCall` (if `validate_unsigned` is called with an unexpected `Call`).
-
-6. **`ValidateUnsigned` Trait (Simulated):**
-   - You will implement this trait for your `Pallet<T>`.
-   - It will have two main methods: `validate_unsigned` and `pre_dispatch`.
-
-7. **`ValidTransaction` and `TransactionValidityError` (Simulated):**
-   - Simplified structures to represent validation results, as used by the `ValidateUnsigned` trait.
+**Main Concepts Covered:**
+1. **Unsigned Transactions:** Transactions without cryptographic signatures
+2. **Validation Logic:** Preventing spam and ensuring transaction validity
+3. **Block Intervals:** Time-based transaction restrictions
+4. **State Management:** Tracking transaction history and limits
+5. **Error Handling:** Proper validation error management
 
 ### Detailed Structures to Implement:
 
-#### **`Config` Trait:**
+#### **Validation Result Types:**
 ```rust
-// Helper trait to get configuration values
-pub trait Get<V> {
-    fn get() -> V;
+/// Result of transaction validation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ValidationResult {
+    /// Transaction is valid and should be included
+    Valid,
+    /// Transaction is invalid and should be rejected
+    Invalid(ValidationError),
 }
 
-pub trait Config {
-    type BlockNumber: Clone + Copy + Default + PartialEq + PartialOrd + core::ops::Sub<Output = Self::BlockNumber> + core::fmt::Debug;
-    type PingInterval: Get<Self::BlockNumber>; // Minimum blocks between pings
-}
-```
-
-#### **`Call<T: Config>` Enum:**
-    ```rust
-// The _phantom is to use the generic T, simulating how it would be in FRAME
-#[derive(Clone, Debug, PartialEq)]
-pub enum Call<T: Config> {
-    PingUnsigned,
-    _Phantom(core::marker::PhantomData<T>), // To use T
-}
-```
-
-#### **`Event<BlockNumber>` Enum:**
-```rust
-#[derive(Clone, Debug, PartialEq)]
-pub enum Event<BlockNumber> {
-    PingReceived { block_number: BlockNumber },
-}
-```
-
-#### **`Error` Enum:**
-    ```rust
-#[derive(Clone, Debug, PartialEq)]
-pub enum Error {
-    TooEarlyToPing,
-    InvalidCall, // If validate_unsigned is called with a Call that is not PingUnsigned
-}
-```
-
-#### **Validation Structures (Simulated):**
-```rust
-#[derive(Debug, PartialEq, Clone)]
-pub struct ValidTransaction {
-    pub priority: u64,
-    pub requires: Vec<Vec<u8>>,
-    pub provides: Vec<Vec<u8>>,
-    pub longevity: u64, // In number of blocks
-    pub propagate: bool,
+/// Validation error types
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ValidationError {
+    /// Too many transactions in current interval
+    TooManyTransactions,
+    /// Transaction submitted too early
+    TooEarly,
+    /// Invalid transaction data
+    InvalidData(String),
+    /// Duplicate transaction
+    Duplicate,
 }
 
-impl Default for ValidTransaction {
-    fn default() -> Self {
-        Self {
-            priority: 0,
-            requires: vec![],
-            provides: vec![],
-            longevity: 5, // Default validity of 5 blocks
-            propagate: true,
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValidationError::TooManyTransactions => write!(f, "Too many transactions in current interval"),
+            ValidationError::TooEarly => write!(f, "Transaction submitted too early"),
+            ValidationError::InvalidData(msg) => write!(f, "Invalid data: {}", msg),
+            ValidationError::Duplicate => write!(f, "Duplicate transaction"),
         }
     }
 }
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum TransactionValidityError {
-    Invalid(Error), // Using our pallet's Error enum
-    Unknown,      // For other types of validity errors
-}
-
-pub type TransactionValidity = Result<ValidTransaction, TransactionValidityError>;
 ```
 
-#### **`ValidateUnsigned<T: Config>` Trait:**
+#### **Block Simulator:**
 ```rust
-pub trait ValidateUnsigned<T: Config> {
-    fn validate_unsigned(
-        // In FRAME, TransactionSource would be a parameter here. Omitted for simplicity.
-        call: &Call<T>,
-        current_block: T::BlockNumber,
-        last_ping_block: Option<T::BlockNumber>, // Passing relevant state
-    ) -> TransactionValidity;
-
-    fn pre_dispatch(call: &Call<T>) -> Result<(), TransactionValidityError>;
-}
-```
-
-#### **`Pallet<T: Config>` Struct:**
-```rust
-pub struct Pallet<T: Config> {
-    last_ping_block: Option<T::BlockNumber>,
-    emitted_events: Vec<Event<T::BlockNumber>>,
+/// Simulates blockchain block progression
+pub struct BlockSimulator {
+    current_block: u64,
+    block_time: u64, // seconds per block
 }
 
-impl<T: Config> Pallet<T> {
-    pub fn new() -> Self {
+impl BlockSimulator {
+    pub fn new(block_time: u64) -> Self {
         Self {
-            last_ping_block: None,
-            emitted_events: Vec::new(),
+            current_block: 1,
+            block_time,
         }
     }
+    
+    /// Get current block number
+    pub fn current_block(&self) -> u64 {
+        self.current_block
+    }
+    
+    /// Advance to next block
+    pub fn next_block(&mut self) {
+        self.current_block = self.current_block.saturating_add(1);
+    }
+    
+    /// Advance multiple blocks
+    pub fn advance_blocks(&mut self, count: u64) {
+        self.current_block = self.current_block.saturating_add(count);
+    }
+    
+    /// Check if enough blocks have passed since last block
+    pub fn blocks_since(&self, last_block: u64) -> u64 {
+        self.current_block.saturating_sub(last_block)
+    }
+    
+    /// Get block time in seconds
+    pub fn block_time(&self) -> u64 {
+        self.block_time
+    }
+}
+```
 
-    // Function that would be called by the "runtime" after pre_dispatch succeeds
-    pub fn ping_unsigned_impl(&mut self, current_block: T::BlockNumber) -> Result<(), Error> {
-        // Time validation was already done in validate_unsigned.
-        // Here, we just execute the dispatch logic.
-        self.last_ping_block = Some(current_block);
-        self.emitted_events.push(Event::PingReceived { block_number: current_block });
+#### **Unsigned Transaction Definition:**
+```rust
+/// Unsigned transaction for data submission
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnsignedTransaction<T> {
+    /// Transaction data
+    pub data: T,
+    /// Block number when transaction was created
+    pub block_number: u64,
+    /// Unique identifier to prevent duplicates
+    pub nonce: u64,
+}
+
+impl<T> UnsignedTransaction<T> {
+    pub fn new(data: T, block_number: u64, nonce: u64) -> Self {
+        Self {
+            data,
+            block_number,
+            nonce,
+        }
+    }
+}
+```
+
+#### **Transaction Validator:**
+```rust
+use std::collections::{HashMap, HashSet};
+
+/// Validates unsigned transactions and prevents spam
+pub struct TransactionValidator {
+    /// Maximum transactions per interval
+    max_per_interval: u32,
+    /// Block interval for rate limiting
+    interval_blocks: u64,
+    /// Minimum blocks between submissions
+    min_block_interval: u64,
+    /// Track transactions per interval
+    interval_counts: HashMap<u64, u32>,
+    /// Track last submission block
+    last_submission: Option<u64>,
+    /// Track used nonces to prevent duplicates
+    used_nonces: HashSet<u64>,
+    /// Block simulator reference
+    block_simulator: BlockSimulator,
+}
+
+impl TransactionValidator {
+    pub fn new(
+        max_per_interval: u32,
+        interval_blocks: u64,
+        min_block_interval: u64,
+        block_simulator: BlockSimulator,
+    ) -> Self {
+        Self {
+            max_per_interval,
+            interval_blocks,
+            min_block_interval,
+            interval_counts: HashMap::new(),
+            last_submission: None,
+            used_nonces: HashSet::new(),
+            block_simulator,
+        }
+    }
+    
+    /// Validate an unsigned transaction
+    pub fn validate_transaction<T>(
+        &mut self,
+        transaction: &UnsignedTransaction<T>,
+    ) -> ValidationResult
+    where
+        T: std::fmt::Debug,
+    {
+        let current_block = self.block_simulator.current_block();
+        
+        // Check minimum block interval
+        if let Some(last_block) = self.last_submission {
+            let blocks_since = self.block_simulator.blocks_since(last_block);
+            if blocks_since < self.min_block_interval {
+                return ValidationResult::Invalid(ValidationError::TooEarly);
+            }
+        }
+        
+        // Check for duplicate nonce
+        if self.used_nonces.contains(&transaction.nonce) {
+            return ValidationResult::Invalid(ValidationError::Duplicate);
+        }
+        
+        // Check rate limiting
+        let interval_start = self.get_interval_start(current_block);
+        let current_count = self.interval_counts.get(&interval_start).unwrap_or(&0);
+        
+        if *current_count >= self.max_per_interval {
+            return ValidationResult::Invalid(ValidationError::TooManyTransactions);
+        }
+        
+        ValidationResult::Valid
+    }
+    
+    /// Accept a valid transaction (update internal state)
+    pub fn accept_transaction<T>(&mut self, transaction: &UnsignedTransaction<T>) -> Result<(), ValidationError>
+    where
+        T: std::fmt::Debug,
+    {
+        let current_block = self.block_simulator.current_block();
+        
+        // Validate first
+        match self.validate_transaction(transaction) {
+            ValidationResult::Valid => {},
+            ValidationResult::Invalid(error) => return Err(error),
+        }
+        
+        // Update state
+        let interval_start = self.get_interval_start(current_block);
+        let count = self.interval_counts.entry(interval_start).or_insert(0);
+        *count += 1;
+        
+        self.last_submission = Some(current_block);
+        self.used_nonces.insert(transaction.nonce);
+        
         Ok(())
     }
-
-    pub fn take_events(&mut self) -> Vec<Event<T::BlockNumber>> {
-        std::mem::take(&mut self.emitted_events)
+    
+    /// Get the start block of current interval
+    fn get_interval_start(&self, block_number: u64) -> u64 {
+        (block_number / self.interval_blocks) * self.interval_blocks
     }
-
-    // Helper method for tests to set initial state
-    #[cfg(test)]
-    pub fn set_last_ping_block(&mut self, block: Option<T::BlockNumber>) {
-        self.last_ping_block = block;
+    
+    /// Clean up old interval data
+    pub fn cleanup_old_intervals(&mut self) {
+        let current_block = self.block_simulator.current_block();
+        let cutoff = current_block.saturating_sub(self.interval_blocks * 2);
+        
+        self.interval_counts.retain(|&interval_start, _| interval_start > cutoff);
+    }
+    
+    /// Get current interval statistics
+    pub fn get_interval_stats(&self) -> (u64, u32, u32) {
+        let current_block = self.block_simulator.current_block();
+        let interval_start = self.get_interval_start(current_block);
+        let current_count = self.interval_counts.get(&interval_start).unwrap_or(&0);
+        
+        (interval_start, *current_count, self.max_per_interval)
+    }
+    
+    /// Get next allowed submission block
+    pub fn next_allowed_block(&self) -> Option<u64> {
+        self.last_submission.map(|last| last + self.min_block_interval)
+    }
+    
+    /// Get blocks until next allowed submission
+    pub fn blocks_until_allowed(&self) -> u64 {
+        match self.next_allowed_block() {
+            Some(next_allowed) => {
+                let current = self.block_simulator.current_block();
+                if next_allowed > current {
+                    next_allowed - current
+                } else {
+                    0
+                }
+            },
+            None => 0,
+        }
+    }
+    
+    /// Get mutable reference to block simulator
+    pub fn block_simulator_mut(&mut self) -> &mut BlockSimulator {
+        &mut self.block_simulator
+    }
+    
+    /// Get reference to block simulator
+    pub fn block_simulator(&self) -> &BlockSimulator {
+        &self.block_simulator
     }
 }
 ```
 
-### Implementation of `ValidateUnsigned for Pallet<T>`:
+#### **Unsigned Transaction Pallet:**
+```rust
+/// Pallet that handles unsigned transactions
+pub struct UnsignedPallet<T> {
+    /// Transaction validator
+    validator: TransactionValidator,
+    /// Stored data from unsigned transactions
+    data_store: HashMap<u64, T>,
+    /// Transaction history
+    transaction_history: Vec<(u64, u64)>, // (block_number, nonce)
+}
 
-This is the crucial part. You will implement this trait for your `Pallet` struct.
+impl<T: std::fmt::Debug + Clone> UnsignedPallet<T> {
+    pub fn new(validator: TransactionValidator) -> Self {
+        Self {
+            validator,
+            data_store: HashMap::new(),
+            transaction_history: Vec::new(),
+        }
+    }
+    
+    /// Submit an unsigned transaction
+    pub fn submit_unsigned(
+        &mut self,
+        data: T,
+        nonce: u64,
+    ) -> Result<(), ValidationError> {
+        let current_block = self.validator.block_simulator().current_block();
+        let transaction = UnsignedTransaction::new(data.clone(), current_block, nonce);
+        
+        // Validate and accept transaction
+        self.validator.accept_transaction(&transaction)?;
+        
+        // Store data
+        self.data_store.insert(nonce, data);
+        self.transaction_history.push((current_block, nonce));
+        
+        Ok(())
+    }
+    
+    /// Get data by nonce
+    pub fn get_data(&self, nonce: u64) -> Option<&T> {
+        self.data_store.get(&nonce)
+    }
+    
+    /// Get all stored data
+    pub fn get_all_data(&self) -> Vec<(u64, &T)> {
+        self.data_store.iter().map(|(nonce, data)| (*nonce, data)).collect()
+    }
+    
+    /// Get transaction history
+    pub fn get_transaction_history(&self) -> &[(u64, u64)] {
+        &self.transaction_history
+    }
+    
+    /// Get validator statistics
+    pub fn get_validator_stats(&self) -> (u64, u32, u32) {
+        self.validator.get_interval_stats()
+    }
+    
+    /// Get next allowed submission info
+    pub fn next_submission_info(&self) -> (Option<u64>, u64) {
+        let next_block = self.validator.next_allowed_block();
+        let blocks_until = self.validator.blocks_until_allowed();
+        (next_block, blocks_until)
+    }
+    
+    /// Advance blockchain state
+    pub fn advance_block(&mut self) {
+        self.validator.block_simulator_mut().next_block();
+        self.validator.cleanup_old_intervals();
+    }
+    
+    /// Advance multiple blocks
+    pub fn advance_blocks(&mut self, count: u64) {
+        self.validator.block_simulator_mut().advance_blocks(count);
+        self.validator.cleanup_old_intervals();
+    }
+    
+    /// Get current block number
+    pub fn current_block(&self) -> u64 {
+        self.validator.block_simulator().current_block()
+    }
+}
+```
 
-#### **`validate_unsigned(...)`:**
-1. Check if the `call` is `Call::PingUnsigned`. If not, return `Err(TransactionValidityError::Invalid(Error::InvalidCall))`.
-2. Use the `last_ping_block` (passed as parameter, since the trait doesn't have `&self`) and `current_block` to check if `current_block - last_ping_block >= T::PingInterval::get()`.
-   - If `last_ping_block` is `None`, the ping is allowed.
-3. If it's too early, return `Err(TransactionValidityError::Invalid(Error::TooEarlyToPing))`.
-4. If valid, construct and return `Ok(ValidTransaction { ... })`.
-   - `provides`: `vec![b"my_pallet_ping_unsigned_tag".to_vec()]`. This helps the transaction pool not accept multiple identical pings at the same time.
-   - `longevity`: A reasonable value, e.g., `T::PingInterval::get()` (the ping is valid until the next one can be sent).
-   - `priority`: Can be a default value, or maybe higher if pings are important.
-   - `propagate`: `true`.
+#### **Transaction Factory:**
+```rust
+/// Helper for creating transactions with proper nonces
+pub struct TransactionFactory {
+    next_nonce: u64,
+}
 
-#### **`pre_dispatch(...)`:**
-1. Check if the `call` is `Call::PingUnsigned`. If not (which would be strange if `validate_unsigned` passed), return an appropriate error (e.g., `Err(TransactionValidityError::Invalid(Error::InvalidCall))`).
-2. For this challenge, if the call is `PingUnsigned`, it can simply return `Ok(())`, since the main validation logic (timing) was already done in `validate_unsigned`. In more complex scenarios, `pre_dispatch` might redo some light checks or prepare state.
+impl TransactionFactory {
+    pub fn new() -> Self {
+        Self { next_nonce: 1 }
+    }
+    
+    /// Create a new transaction with auto-incrementing nonce
+    pub fn create_transaction<T>(
+        &mut self,
+        data: T,
+        block_number: u64,
+    ) -> UnsignedTransaction<T> {
+        let nonce = self.next_nonce;
+        self.next_nonce = self.next_nonce.saturating_add(1);
+        UnsignedTransaction::new(data, block_number, nonce)
+    }
+    
+    /// Get next nonce that will be used
+    pub fn peek_next_nonce(&self) -> u64 {
+        self.next_nonce
+    }
+    
+    /// Reset nonce counter
+    pub fn reset(&mut self) {
+        self.next_nonce = 1;
+    }
+}
+```
 
 ### Tests
 
-Create a `tests` module. You will need:
-- `TestBlockNumber` (e.g., `u64`).
-- `TestPingInterval` struct that implements `Get<TestBlockNumber>`.
-- `TestConfig` struct that implements `crate::Config`.
+Create comprehensive tests covering:
 
-**Test Scenarios:**
+1. **Transaction Validation:**
+   - Test valid transaction acceptance
+   - Test spam prevention (too many transactions)
+   - Test timing restrictions (too early submissions)
+   - Test duplicate prevention
 
-- **Successful validation:**
-  - No previous pings: `validate_unsigned` should return `Ok(ValidTransaction)`.
-  - After sufficient interval: `validate_unsigned` should return `Ok(ValidTransaction)`.
-- **Validation failure:**
-  - Ping too early: `validate_unsigned` should return `Err(TransactionValidityError::Invalid(Error::TooEarlyToPing))`.
-  - Invalid call for `validate_unsigned`: Should return `Err(TransactionValidityError::Invalid(Error::InvalidCall))`.
-- **`pre_dispatch`:**
-  - Valid call: `pre_dispatch` should return `Ok(())`.
+2. **Block Progression:**
+   - Test rate limiting across block intervals
+   - Test cleanup of old interval data
+   - Test minimum block interval enforcement
+
+3. **State Management:**
+   - Test data storage and retrieval
+   - Test transaction history tracking
+   - Test validator state updates
+
+4. **Edge Cases:**
+   - Test boundary conditions for intervals
+   - Test maximum capacity scenarios
+   - Test cleanup after long periods
+
+5. **Integration:**
+   - Test full transaction lifecycle
+   - Test multiple concurrent submissions
+   - Test validator statistics accuracy
 
 ### Expected Output
 
-A set of Rust functions that pass all proposed unit tests, demonstrating correct manipulation of unsigned transaction validation, timing constraints, and proper error handling.
+A complete unsigned transaction system that:
+- Validates unsigned transactions effectively
+- Prevents spam through rate limiting
+- Manages state properly
+- Handles errors gracefully
+- Demonstrates understanding of Substrate's unsigned transaction concepts
 
 ### Theoretical Context
 
-#### **Unsigned Transactions:**
-- Transactions that don't require a signature from any account
-- Used for data that anyone can submit (like oracle data, inherents)
-- Must be carefully validated to prevent spam
-- Common in off-chain workers and inherent data providers
+**Unsigned Transactions in Substrate:**
+- **Purpose:** Allow transactions without cryptographic signatures
+- **Use Cases:** Oracle data, periodic maintenance, system operations
+- **Validation:** Must implement custom validation logic to prevent spam
+- **Security:** Relies on validation logic rather than cryptographic proof
+- **Block Inclusion:** Subject to same block limits as signed transactions
 
-#### **`ValidateUnsigned` Trait:**
-- Core mechanism for validating unsigned transactions in Substrate
-- Two-phase validation: `validate_unsigned` (in transaction pool) and `pre_dispatch` (before execution)
-- Must prevent spam while allowing legitimate unsigned transactions
-- Used by pallets like `pallet-im-online` for validator heartbeats
+**Validation Strategies:**
+- **Rate Limiting:** Prevent too many transactions per time period
+- **Timing Restrictions:** Enforce minimum intervals between submissions
+- **Duplicate Prevention:** Use nonces or hashes to prevent replays
+- **Data Validation:** Ensure transaction data meets requirements
+- **Resource Limits:** Prevent excessive resource consumption
 
-#### **Transaction Pool:**
-- Validates transactions before including them in blocks
-- Uses `provides` and `requires` tags to manage transaction dependencies
-- `longevity` determines how long a transaction stays valid
-- `priority` affects transaction ordering in the pool
+**Best Practices:**
+- Always implement comprehensive validation
+- Use multiple validation layers for security
+- Consider economic incentives and penalties
+- Monitor and adjust limits based on network conditions
+- Provide clear error messages for rejected transactions
 
-This challenge demonstrates the critical balance between allowing useful unsigned transactions while preventing network abuse. 
+This system demonstrates how to safely implement unsigned transactions while preventing network abuse. 

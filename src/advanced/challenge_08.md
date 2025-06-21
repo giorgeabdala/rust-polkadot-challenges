@@ -1,25 +1,18 @@
-## Challenge 8: Asynchronous Worker Simulator for Data Collection
+## Challenge 8: Off-Chain Worker Simulator
 
 **Difficulty Level:** Advanced
-**Estimated Time:** 2 hours
+**Estimated Time:** 1.5 hours
 
 ### Objective Description
 
-You will implement an asynchronous worker simulator in pure Rust that demonstrates the fundamental concepts of Substrate off-chain workers. This system will collect data from simulated sources and process it asynchronously, without requiring external Substrate dependencies.
-
-The simulator should allow:
-- Periodic execution of data collection tasks
-- Asynchronous processing of collected data
-- Cache system for processed data
-- Data validation and filtering
-- Event system for notifications
+You will implement a simplified off-chain worker system that demonstrates the core concepts of Substrate off-chain workers. This system will simulate data collection from external sources and processing without requiring complex blockchain dependencies.
 
 **Main Concepts Covered:**
-1. **Asynchronous Workers:** Background processing
-2. **Data Collection:** Simulation of external APIs
-3. **Data Caching:** Efficient temporary storage
-4. **Validation:** Data integrity verification
-5. **Periodic Processing:** Execution at regular intervals
+1. **Off-Chain Workers:** Background processing separate from consensus
+2. **Data Collection:** Fetching external data sources
+3. **Data Storage:** Simple caching mechanism
+4. **Error Handling:** Robust failure management
+5. **Worker Lifecycle:** Execution cycles and state management
 
 ### Detailed Structures to Implement:
 
@@ -28,6 +21,7 @@ The simulator should allow:
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// External data point collected by worker
 #[derive(Debug, Clone, PartialEq)]
 pub struct DataPoint {
     pub id: String,
@@ -53,11 +47,6 @@ impl DataPoint {
         self.timestamp > 0
     }
     
-    pub fn is_recent(&self, max_age_seconds: u64) -> bool {
-        let current = Self::current_timestamp();
-        current.saturating_sub(self.timestamp) <= max_age_seconds
-    }
-    
     fn current_timestamp() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -67,62 +56,40 @@ impl DataPoint {
 }
 ```
 
-#### **Simulated Data Source:**
+#### **Data Source Simulation:**
 ```rust
+/// Trait for external data sources
 pub trait DataSource {
     fn name(&self) -> &str;
     fn fetch_data(&mut self) -> Result<Vec<DataPoint>, DataSourceError>;
-    fn is_available(&self) -> bool;
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataSourceError {
-    Unavailable,
+    NetworkError,
     InvalidData,
     Timeout,
-    NetworkError,
 }
 
-/// External data source simulator
+/// Mock external API for testing
 pub struct MockDataSource {
     name: String,
-    data_points: Vec<DataPoint>,
-    failure_rate: f64, // 0.0 = never fails, 1.0 = always fails
-    call_count: usize,
+    data_counter: usize,
+    should_fail: bool,
 }
 
 impl MockDataSource {
     pub fn new(name: String) -> Self {
-        let mut data_points = Vec::new();
-        
-        // Simulate some data
-        for i in 0..10 {
-            data_points.push(DataPoint::new(
-                format!("metric_{}", i),
-                (i as f64) * 10.5 + 100.0,
-                name.clone(),
-            ));
-        }
-        
         Self {
             name,
-            data_points,
-            failure_rate: 0.1, // 10% chance of failure
-            call_count: 0,
+            data_counter: 0,
+            should_fail: false,
         }
     }
     
-    pub fn with_failure_rate(mut self, rate: f64) -> Self {
-        self.failure_rate = rate.clamp(0.0, 1.0);
+    pub fn with_failure(mut self, should_fail: bool) -> Self {
+        self.should_fail = should_fail;
         self
-    }
-    
-    pub fn add_data_point(&mut self, data_point: DataPoint) {
-        self.data_points.push(data_point);
-    }
-    
-    pub fn call_count(&self) -> usize {
-        self.call_count
     }
 }
 
@@ -132,384 +99,303 @@ impl DataSource for MockDataSource {
     }
     
     fn fetch_data(&mut self) -> Result<Vec<DataPoint>, DataSourceError> {
-        self.call_count += 1;
-        
-        // Simulate occasional failures
-        if self.failure_rate > 0.0 {
-            let random_value = (self.call_count as f64 * 0.1) % 1.0;
-            if random_value < self.failure_rate {
-                return Err(DataSourceError::NetworkError);
-            }
+        if self.should_fail {
+            return Err(DataSourceError::NetworkError);
         }
         
-        // Simulate data variation
-        let mut result = Vec::new();
-        for (i, base_point) in self.data_points.iter().enumerate() {
-            let variation = ((self.call_count + i) as f64 * 0.1).sin() * 5.0;
-            let mut point = base_point.clone();
-            point.value += variation;
-            point.timestamp = DataPoint::current_timestamp();
-            result.push(point);
+        self.data_counter += 1;
+        
+        let mut data_points = Vec::new();
+        for i in 0..3 {
+            data_points.push(DataPoint::new(
+                format!("metric_{}", i),
+                (self.data_counter as f64) * 10.0 + (i as f64),
+                self.name.clone(),
+            ));
         }
         
-        Ok(result)
+        Ok(data_points)
     }
-    
-    fn is_available(&self) -> bool {
-        true
-        }
-    }
-    ```
+}
+```
 
-#### **Cache System:**
+#### **Simple Cache System:**
 ```rust
+/// Simple cache for collected data
 pub struct DataCache {
-    cache: HashMap<String, DataPoint>,
-    max_age_seconds: u64,
+    data: HashMap<String, DataPoint>,
     max_entries: usize,
 }
 
 impl DataCache {
-    pub fn new(max_age_seconds: u64, max_entries: usize) -> Self {
+    pub fn new(max_entries: usize) -> Self {
         Self {
-            cache: HashMap::new(),
-            max_age_seconds,
+            data: HashMap::new(),
             max_entries,
         }
     }
     
     pub fn insert(&mut self, data_point: DataPoint) {
-        // Clean cache if necessary
-        self.cleanup_expired();
-        
-        // Limit number of entries
-        if self.cache.len() >= self.max_entries {
-            self.remove_oldest();
+        // Simple eviction: remove oldest if at capacity
+        if self.data.len() >= self.max_entries {
+            if let Some(oldest_key) = self.data
+                .iter()
+                .min_by_key(|(_, point)| point.timestamp)
+                .map(|(key, _)| key.clone())
+            {
+                self.data.remove(&oldest_key);
+            }
         }
         
-        self.cache.insert(data_point.id.clone(), data_point);
+        self.data.insert(data_point.id.clone(), data_point);
     }
     
     pub fn get(&self, id: &str) -> Option<&DataPoint> {
-        self.cache.get(id).filter(|point| point.is_recent(self.max_age_seconds))
+        self.data.get(id)
     }
     
-    pub fn get_all_valid(&self) -> Vec<&DataPoint> {
-        self.cache
-            .values()
-            .filter(|point| point.is_recent(self.max_age_seconds))
-            .collect()
-    }
-    
-    pub fn cleanup_expired(&mut self) {
-        let current_time = DataPoint::current_timestamp();
-        self.cache.retain(|_, point| {
-            current_time.saturating_sub(point.timestamp) <= self.max_age_seconds
-        });
-    }
-    
-    fn remove_oldest(&mut self) {
-        if let Some(oldest_key) = self.cache
-            .iter()
-            .min_by_key(|(_, point)| point.timestamp)
-            .map(|(key, _)| key.clone())
-        {
-            self.cache.remove(&oldest_key);
-        }
+    pub fn get_all(&self) -> Vec<&DataPoint> {
+        self.data.values().collect()
     }
     
     pub fn size(&self) -> usize {
-        self.cache.len()
+        self.data.len()
+    }
+    
+    pub fn clear(&mut self) {
+        self.data.clear();
     }
 }
 ```
 
-#### **Asynchronous Worker:**
+#### **Off-Chain Worker:**
 ```rust
-pub struct AsyncWorker {
+/// Main off-chain worker implementation
+pub struct OffChainWorker {
     sources: Vec<Box<dyn DataSource>>,
     cache: DataCache,
-    events: Vec<WorkerEvent>,
-    config: WorkerConfig,
     stats: WorkerStats,
-}
-
-#[derive(Debug, Clone)]
-pub struct WorkerConfig {
-    pub max_data_age_seconds: u64,
-    pub cache_max_entries: usize,
-    pub batch_size: usize,
-    pub retry_attempts: usize,
-}
-
-impl Default for WorkerConfig {
-    fn default() -> Self {
-        Self {
-            max_data_age_seconds: 300, // 5 minutes
-            cache_max_entries: 1000,
-            batch_size: 10,
-            retry_attempts: 3,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct WorkerStats {
-    pub total_fetches: usize,
+    pub total_executions: usize,
     pub successful_fetches: usize,
     pub failed_fetches: usize,
     pub cached_items: usize,
-    pub processed_items: usize,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum WorkerEvent {
-    DataFetched { source: String, count: usize },
-    DataCached { id: String, source: String },
-    FetchFailed { source: String, error: DataSourceError },
-    CacheCleanup { removed_count: usize },
-    WorkerExecuted { duration_ms: u64 },
-}
-
-impl AsyncWorker {
-    pub fn new(config: WorkerConfig) -> Self {
+impl OffChainWorker {
+    pub fn new(cache_size: usize) -> Self {
         Self {
             sources: Vec::new(),
-            cache: DataCache::new(config.max_data_age_seconds, config.cache_max_entries),
-            events: Vec::new(),
-            config,
+            cache: DataCache::new(cache_size),
             stats: WorkerStats::default(),
         }
     }
     
+    /// Add a data source to the worker
     pub fn add_source(&mut self, source: Box<dyn DataSource>) {
         self.sources.push(source);
     }
     
-    /// Execute complete worker cycle
-    pub fn execute_cycle(&mut self) -> Result<WorkerStats, String> {
-        let start_time = std::time::Instant::now();
+    /// Execute one worker cycle
+    pub fn execute(&mut self) -> Result<(), String> {
+        self.stats.total_executions += 1;
         
-        // Clean expired cache
-        let initial_cache_size = self.cache.size();
-        self.cache.cleanup_expired();
-        let cleaned_count = initial_cache_size.saturating_sub(self.cache.size());
-        
-        if cleaned_count > 0 {
-            self.events.push(WorkerEvent::CacheCleanup { 
-                removed_count: cleaned_count 
-            });
-        }
-        
-        // Collect data from all sources
         for source in &mut self.sources {
-            self.fetch_from_source(source.as_mut());
-        }
-        
-        // Update statistics
-        self.stats.cached_items = self.cache.size();
-        
-        let duration = start_time.elapsed();
-        self.events.push(WorkerEvent::WorkerExecuted { 
-            duration_ms: duration.as_millis() as u64 
-        });
-        
-        Ok(self.stats.clone())
-    }
-    
-    fn fetch_from_source(&mut self, source: &mut dyn DataSource) {
-        self.stats.total_fetches += 1;
-        
-        let mut attempts = 0;
-        while attempts < self.config.retry_attempts {
             match source.fetch_data() {
                 Ok(data_points) => {
                     self.stats.successful_fetches += 1;
-                    self.process_data_points(data_points, source.name());
-                    
-                    self.events.push(WorkerEvent::DataFetched { 
-                        source: source.name().to_string(),
-                        count: data_points.len(),
-                    });
-                    return;
+                    self.process_data(data_points);
                 },
                 Err(error) => {
-                    attempts += 1;
-                    if attempts >= self.config.retry_attempts {
-                        self.stats.failed_fetches += 1;
-                        self.events.push(WorkerEvent::FetchFailed { 
-                            source: source.name().to_string(),
-                            error,
-                        });
-                    }
+                    self.stats.failed_fetches += 1;
+                    eprintln!("Failed to fetch from {}: {:?}", source.name(), error);
                 }
             }
         }
+        
+        self.stats.cached_items = self.cache.size();
+        Ok(())
     }
     
-    fn process_data_points(&mut self, data_points: Vec<DataPoint>, source_name: &str) {
+    fn process_data(&mut self, data_points: Vec<DataPoint>) {
         for data_point in data_points {
             if data_point.is_valid() {
-                self.events.push(WorkerEvent::DataCached { 
-                    id: data_point.id.clone(),
-                    source: source_name.to_string(),
-                });
-                
                 self.cache.insert(data_point);
-                self.stats.processed_items += 1;
             }
         }
     }
     
-    /// Get data from cache
-    pub fn get_cached_data(&self, id: &str) -> Option<&DataPoint> {
+    /// Get cached data by ID
+    pub fn get_data(&self, id: &str) -> Option<&DataPoint> {
         self.cache.get(id)
     }
     
-    /// Get all valid data from cache
-    pub fn get_all_cached_data(&self) -> Vec<&DataPoint> {
-        self.cache.get_all_valid()
+    /// Get all cached data
+    pub fn get_all_data(&self) -> Vec<&DataPoint> {
+        self.cache.get_all()
     }
     
-    /// Get emitted events
-    pub fn get_events(&self) -> &[WorkerEvent] {
-        &self.events
-    }
-    
-    /// Clear events
-    pub fn clear_events(&mut self) {
-        self.events.clear();
-    }
-    
-    /// Get statistics
+    /// Get worker statistics
     pub fn get_stats(&self) -> &WorkerStats {
         &self.stats
     }
     
-    /// Check if there is recent data from a source
-    pub fn has_recent_data_from_source(&self, source: &str) -> bool {
-        self.cache.get_all_valid()
+    /// Clear all cached data
+    pub fn clear_cache(&mut self) {
+        self.cache.clear();
+    }
+    
+    /// Check if worker has data from specific source
+    pub fn has_data_from_source(&self, source_name: &str) -> bool {
+        self.cache.get_all()
             .iter()
-            .any(|point| point.source == source)
+            .any(|data_point| data_point.source == source_name)
     }
 }
 ```
 
-### Implementation Requirements:
-
-1. **Collection System:**
-   - Implement multiple simulated data sources
-   - Manage failures and retry logic
-   - Process data in batches
-
-2. **Smart Cache:**
-   - Automatic expiration of old data
-   - Memory limits
-   - Efficient cleanup
-
-3. **Asynchronous Processing:**
-   - Simulated periodic execution
-   - Robust error handling
-   - Performance statistics
-
-### Test Configuration:
-
+#### **Worker Manager:**
 ```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Manages multiple worker executions
+pub struct WorkerManager {
+    worker: OffChainWorker,
+    execution_count: usize,
+}
 
-    fn create_test_worker() -> AsyncWorker {
-        let config = WorkerConfig {
-            max_data_age_seconds: 60,
-            cache_max_entries: 100,
-            batch_size: 5,
-            retry_attempts: 2,
-        };
-        
-        let mut worker = AsyncWorker::new(config);
-        
-        // Add test sources
-        let source1 = Box::new(MockDataSource::new("test_source_1".to_string()));
-        let source2 = Box::new(MockDataSource::new("test_source_2".to_string())
-            .with_failure_rate(0.3));
-        
-        worker.add_source(source1);
-        worker.add_source(source2);
-        
-        worker
+impl WorkerManager {
+    pub fn new(worker: OffChainWorker) -> Self {
+        Self {
+            worker,
+            execution_count: 0,
+        }
     }
-
-    #[test]
-    fn worker_executes_successfully() {
-        let mut worker = create_test_worker();
+    
+    /// Run worker for specified number of cycles
+    pub fn run_cycles(&mut self, cycles: usize) -> Result<WorkerStats, String> {
+        for _ in 0..cycles {
+            self.worker.execute()?;
+            self.execution_count += 1;
+        }
         
-        let stats = worker.execute_cycle().unwrap();
-        
-        assert!(stats.total_fetches > 0);
-        assert!(stats.processed_items > 0);
-        assert!(worker.get_all_cached_data().len() > 0);
+        Ok(self.worker.get_stats().clone())
     }
+    
+    /// Get total execution count
+    pub fn execution_count(&self) -> usize {
+        self.execution_count
+    }
+    
+    /// Get access to the worker
+    pub fn worker(&self) -> &OffChainWorker {
+        &self.worker
+    }
+    
+    /// Get mutable access to the worker
+    pub fn worker_mut(&mut self) -> &mut OffChainWorker {
+        &mut self.worker
+    }
+}
+```
 
-    #[test]
-    fn cache_expires_old_data() {
-        // Cache expiration test
-        let mut cache = DataCache::new(1, 100); // 1 second TTL
+#### **Simple Oracle Data Source:**
+```rust
+/// Oracle-like data source for blockchain data
+pub struct OracleDataSource {
+    name: String,
+    price_base: f64,
+    price_counter: usize,
+}
+
+impl OracleDataSource {
+    pub fn new(name: String, base_price: f64) -> Self {
+        Self {
+            name,
+            price_base: base_price,
+            price_counter: 0,
+        }
+    }
+}
+
+impl DataSource for OracleDataSource {
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    fn fetch_data(&mut self) -> Result<Vec<DataPoint>, DataSourceError> {
+        self.price_counter += 1;
+        
+        // Simulate price fluctuation
+        let price_variation = (self.price_counter as f64 * 0.1).sin() * 50.0;
+        let current_price = self.price_base + price_variation;
         
         let data_point = DataPoint::new(
-            "test".to_string(),
-            42.0,
-            "test_source".to_string(),
+            "price".to_string(),
+            current_price,
+            self.name.clone(),
         );
         
-        cache.insert(data_point);
-        assert!(cache.get("test").is_some());
-        
-        // Simulate time passage
-        std::thread::sleep(std::time::Duration::from_secs(2));
-        cache.cleanup_expired();
-        
-        assert!(cache.get("test").is_none());
+        Ok(vec![data_point])
     }
-
-    // Add more tests here...
 }
 ```
 
 ### Tests
 
-Create a test module with the following scenarios:
-- **Successful execution:** Verify worker collects and processes data
-- **Failure handling:** Verify retry logic and error handling
-- **Functional cache:** Verify expiration and data cleanup
-- **Multiple sources:** Verify processing of various sources
-- **Statistics:** Verify metrics are collected correctly
-- **Events:** Verify events are emitted appropriately
+Create comprehensive tests covering:
+
+1. **Data Collection:**
+   - Test successful data fetching from sources
+   - Test error handling for failed sources
+   - Test data validation
+
+2. **Cache Management:**
+   - Test data insertion and retrieval
+   - Test cache size limits
+   - Test data eviction
+
+3. **Worker Execution:**
+   - Test single execution cycle
+   - Test multiple execution cycles
+   - Test statistics collection
+
+4. **Integration:**
+   - Test worker with multiple sources
+   - Test worker manager functionality
+   - Test oracle data source
 
 ### Expected Output
 
-A complete asynchronous worker simulator implementation that:
-- Compiles without errors
-- Passes all unit tests
-- Demonstrates off-chain worker concepts without external dependencies
-- Manages data efficiently with cache
-- Provides detailed statistics and events
+A complete off-chain worker system that:
+- Collects data from simulated external sources
+- Caches processed data efficiently
+- Handles errors gracefully
+- Provides execution statistics
+- Demonstrates core off-chain worker concepts
 
 ### Theoretical Context
 
-This challenge simulates fundamental concepts of Substrate off-chain workers:
+**Off-Chain Workers in Substrate:**
+- **Purpose:** Execute logic outside of consensus without blocking block production
+- **Use Cases:** Oracle data, heavy computations, external API calls
+- **Architecture:** Separate execution environment from runtime
+- **Data Flow:** Fetch → Process → Store/Submit
+- **Benefits:** Scalability, external integration, resource efficiency
 
-- **Asynchronous Processing:** Workers execute in background without blocking the blockchain
-- **External Data Collection:** Integration with APIs and external data sources
-- **Cache and Performance:** Optimization of access to frequently used data
-- **Failure Handling:** Robustness against network failures and unavailable sources
-- **Monitoring:** Collection of metrics and events for observability
+**Key Concepts:**
+- **Asynchronous Execution:** Workers run independently of block production
+- **External Data Access:** Ability to call external APIs and services
+- **State Management:** Local storage and caching mechanisms
+- **Error Resilience:** Handling network failures and data inconsistencies
+- **Resource Isolation:** Separate from consensus-critical operations
 
-This foundation prepares for understanding how real off-chain workers function in Substrate, but without the complexity of blockchain environment configuration.
+**Best Practices:**
+- Keep worker logic simple and focused
+- Implement proper error handling and retries
+- Use efficient caching strategies
+- Monitor worker performance and health
+- Ensure data validation before processing
 
-**Advantages of This Approach:**
-- Focus on fundamental concepts without blockchain overhead
-- Pure Rust with only standard libraries
-- Testable and iterable quickly
-- Demonstrates asynchronous design patterns
-- Prepares for real off-chain worker implementations
+This system demonstrates the fundamental patterns used in Substrate off-chain workers while remaining simple enough to implement and understand quickly.

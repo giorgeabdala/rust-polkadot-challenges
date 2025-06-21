@@ -1,264 +1,247 @@
-## Challenge 4: Simple Custom RPC for Counter Pallet
+## Challenge 4: Custom RPC Methods
 
 **Difficulty Level:** Advanced
-**Estimated Time:** 2 hours
+**Estimated Time:** 1.5 hours
 
 ### Objective Description
 
-You will implement a simple custom RPC (Remote Procedure Call) system for a counter pallet. This challenge focuses on understanding how external applications can query blockchain state and call custom functions that are not part of the standard runtime API.
+You will implement a custom RPC (Remote Procedure Call) system that allows external applications to query blockchain state through custom endpoints. This challenge focuses on understanding how Substrate exposes blockchain data to external clients and how to create efficient query interfaces.
 
 **Main Concepts Covered:**
-1. **RPC System:** External interface for blockchain interaction
-2. **Runtime API:** Bridge between RPC and runtime logic
-3. **State Queries:** Reading blockchain state without transactions
-4. **Custom Endpoints:** Creating specialized query functions
-5. **JSON-RPC Protocol:** Standard protocol for remote calls
+1. **RPC Interface Design:** Creating custom query endpoints
+2. **Runtime API Bridge:** Connecting RPC to runtime logic
+3. **State Queries:** Efficient blockchain state access
+4. **Error Handling:** Proper RPC error management
+5. **Separation of Concerns:** RPC layer vs Runtime layer
 
 ### Detailed Structures to Implement:
 
-#### **Counter Pallet (Simplified):**
-```rust
-use std::collections::HashMap;
-
-pub struct CounterPallet {
-    counters: HashMap<String, u32>,
-}
-
-impl CounterPallet {
-    pub fn new() -> Self {
-        Self {
-            counters: HashMap::new(),
-        }
-    }
-    
-    pub fn increment_counter(&mut self, name: String) -> u32 {
-        let counter = self.counters.entry(name).or_insert(0);
-        *counter = counter.saturating_add(1);
-        *counter
-    }
-    
-    pub fn get_counter(&self, name: &str) -> Option<u32> {
-        self.counters.get(name).copied()
-    }
-    
-    pub fn get_all_counters(&self) -> Vec<(String, u32)> {
-        self.counters.iter().map(|(k, v)| (k.clone(), *v)).collect()
-    }
-}
-```
-
 #### **RPC Trait Definition:**
 ```rust
-/// RPC interface for counter operations
-pub trait CounterRpc {
-    /// Get the value of a specific counter
-    fn get_counter(&self, name: String) -> Result<Option<u32>, String>;
+/// Custom RPC interface for blockchain queries
+pub trait CustomRpc {
+    /// Get item by ID
+    fn get_item(&self, id: u32) -> Result<Option<String>, RpcError>;
     
-    /// Get all counters and their values
-    fn get_all_counters(&self) -> Result<Vec<(String, u32)>, String>;
+    /// Get all items
+    fn get_all_items(&self) -> Result<Vec<(u32, String)>, RpcError>;
     
-    /// Get the total sum of all counters
-    fn get_total_sum(&self) -> Result<u32, String>;
+    /// Get items count
+    fn get_items_count(&self) -> Result<u32, RpcError>;
     
-    /// Get counters above a certain threshold
-    fn get_counters_above(&self, threshold: u32) -> Result<Vec<(String, u32)>, String>;
+    /// Check if item exists
+    fn item_exists(&self, id: u32) -> Result<bool, RpcError>;
 }
 ```
 
-#### **Runtime API Bridge:**
-    ```rust
-/// Bridge between RPC and runtime
-pub trait CounterRuntimeApi {
-    fn get_counter_value(&self, name: String) -> Option<u32>;
-    fn get_all_counter_values(&self) -> Vec<(String, u32)>;
+#### **RPC Error Types:**
+```rust
+#[derive(Debug, Clone)]
+pub enum RpcError {
+    /// Item not found
+    ItemNotFound,
+    /// Internal server error
+    InternalError(String),
+    /// Invalid parameters
+    InvalidParams(String),
 }
 
-/// Mock runtime API implementation
-pub struct MockRuntimeApi {
-    pallet: CounterPallet,
+impl std::fmt::Display for RpcError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RpcError::ItemNotFound => write!(f, "Item not found"),
+            RpcError::InternalError(msg) => write!(f, "Internal error: {}", msg),
+            RpcError::InvalidParams(msg) => write!(f, "Invalid parameters: {}", msg),
+        }
+    }
+}
+```
+
+#### **Runtime API Interface:**
+```rust
+/// Runtime API for RPC queries
+pub trait RuntimeApi {
+    /// Get item from runtime storage
+    fn runtime_get_item(&self, id: u32) -> Option<String>;
+    
+    /// Get all items from runtime storage
+    fn runtime_get_all_items(&self) -> Vec<(u32, String)>;
+    
+    /// Get total items count
+    fn runtime_get_count(&self) -> u32;
+}
+```
+
+#### **Mock Runtime Implementation:**
+```rust
+/// Mock runtime that simulates blockchain state
+pub struct MockRuntime {
+    items: std::collections::HashMap<u32, String>,
 }
 
-impl MockRuntimeApi {
-    pub fn new(pallet: CounterPallet) -> Self {
-        Self { pallet }
+impl MockRuntime {
+    pub fn new() -> Self {
+        let mut items = std::collections::HashMap::new();
+        items.insert(1, "First item".to_string());
+        items.insert(2, "Second item".to_string());
+        items.insert(3, "Third item".to_string());
+        
+        Self { items }
     }
 }
 
-impl CounterRuntimeApi for MockRuntimeApi {
-    fn get_counter_value(&self, name: String) -> Option<u32> {
-        self.pallet.get_counter(&name)
+impl RuntimeApi for MockRuntime {
+    fn runtime_get_item(&self, id: u32) -> Option<String> {
+        self.items.get(&id).cloned()
     }
     
-    fn get_all_counter_values(&self) -> Vec<(String, u32)> {
-        self.pallet.get_all_counters()
+    fn runtime_get_all_items(&self) -> Vec<(u32, String)> {
+        self.items.iter()
+            .map(|(k, v)| (*k, v.clone()))
+            .collect()
+    }
+    
+    fn runtime_get_count(&self) -> u32 {
+        self.items.len() as u32
     }
 }
 ```
 
 #### **RPC Implementation:**
-    ```rust
-pub struct CounterRpcImpl<Api> {
-    runtime_api: Api,
-}
-
-impl<Api> CounterRpcImpl<Api> {
-    pub fn new(runtime_api: Api) -> Self {
-        Self { runtime_api }
-    }
-}
-
-impl<Api: CounterRuntimeApi> CounterRpc for CounterRpcImpl<Api> {
-    fn get_counter(&self, name: String) -> Result<Option<u32>, String> {
-        Ok(self.runtime_api.get_counter_value(name))
-    }
-    
-    fn get_all_counters(&self) -> Result<Vec<(String, u32)>, String> {
-        Ok(self.runtime_api.get_all_counter_values())
-    }
-    
-    fn get_total_sum(&self) -> Result<u32, String> {
-        let counters = self.runtime_api.get_all_counter_values();
-        let sum = counters.iter().map(|(_, value)| value).sum();
-        Ok(sum)
-    }
-    
-    fn get_counters_above(&self, threshold: u32) -> Result<Vec<(String, u32)>, String> {
-        let counters = self.runtime_api.get_all_counter_values();
-        let filtered: Vec<(String, u32)> = counters
-            .into_iter()
-            .filter(|(_, value)| *value > threshold)
-            .collect();
-        Ok(filtered)
-    }
-}
-```
-
-### JSON-RPC Protocol Simulation:
-
-### Project Setup
-
-Before starting, you will need to configure the necessary dependencies:
-
-#### **Cargo.toml:**
-```toml
-[package]
-name = "counter-rpc-challenge"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-```
-
-#### **How to configure (choose one option):**
-
-**Option 1 - Using cargo add (recommended):**
-```bash
-cargo add serde --features derive
-cargo add serde_json
-```
-
-**Option 2 - Editing Cargo.toml manually:**
-```bash
-# Edit the Cargo.toml file above and then run:
-cargo build
-```
-
-#### **RPC Request/Response Types:**
 ```rust
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcRequest {
-    pub jsonrpc: String,
-    pub method: String,
-    pub params: serde_json::Value,
-    pub id: u64,
+/// RPC implementation that bridges to runtime
+pub struct CustomRpcImpl<R: RuntimeApi> {
+    runtime: R,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcResponse {
-    pub jsonrpc: String,
-    pub result: Option<serde_json::Value>,
-    pub error: Option<RpcError>,
-    pub id: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RpcError {
-    pub code: i32,
-    pub message: String,
-}
-```
-
-#### **RPC Handler:**
-```rust
-pub struct RpcHandler<Rpc> {
-    counter_rpc: Rpc,
-}
-
-impl<Rpc: CounterRpc> RpcHandler<Rpc> {
-    pub fn new(counter_rpc: Rpc) -> Self {
-        Self { counter_rpc }
+impl<R: RuntimeApi> CustomRpcImpl<R> {
+    pub fn new(runtime: R) -> Self {
+        Self { runtime }
     }
-    
-    pub fn handle_request(&self, request: RpcRequest) -> RpcResponse {
-        let result = match request.method.as_str() {
-            "counter_getCounter" => {
-                let name = match request.params.get("name") {
-                    Some(serde_json::Value::String(s)) => s.clone(),
-                    _ => return self.error_response(request.id, -32602, "Invalid params"),
-                };
-                
-                match self.counter_rpc.get_counter(name) {
-                    Ok(value) => serde_json::to_value(value).unwrap(),
-                    Err(e) => return self.error_response(request.id, -32603, &e),
-                }
-            },
-            "counter_getAllCounters" => {
-                match self.counter_rpc.get_all_counters() {
-                    Ok(counters) => serde_json::to_value(counters).unwrap(),
-                    Err(e) => return self.error_response(request.id, -32603, &e),
-                }
-            },
-            "counter_getTotalSum" => {
-                match self.counter_rpc.get_total_sum() {
-                    Ok(sum) => serde_json::to_value(sum).unwrap(),
-                    Err(e) => return self.error_response(request.id, -32603, &e),
-                }
-            },
-            "counter_getCountersAbove" => {
-                let threshold = match request.params.get("threshold") {
-                    Some(serde_json::Value::Number(n)) => n.as_u64().unwrap_or(0) as u32,
-                    _ => return self.error_response(request.id, -32602, "Invalid params"),
-                };
-                
-                match self.counter_rpc.get_counters_above(threshold) {
-                    Ok(counters) => serde_json::to_value(counters).unwrap(),
-                    Err(e) => return self.error_response(request.id, -32603, &e),
-                }
-            },
-            _ => return self.error_response(request.id, -32601, "Method not found"),
-        };
+}
+
+impl<R: RuntimeApi> CustomRpc for CustomRpcImpl<R> {
+    fn get_item(&self, id: u32) -> Result<Option<String>, RpcError> {
+        if id == 0 {
+            return Err(RpcError::InvalidParams("ID cannot be zero".to_string()));
+        }
         
-        RpcResponse {
-            jsonrpc: "2.0".to_string(),
-            result: Some(result),
+        Ok(self.runtime.runtime_get_item(id))
+    }
+    
+    fn get_all_items(&self) -> Result<Vec<(u32, String)>, RpcError> {
+        let items = self.runtime.runtime_get_all_items();
+        if items.len() > 1000 {
+            return Err(RpcError::InternalError("Too many items".to_string()));
+        }
+        Ok(items)
+    }
+    
+    fn get_items_count(&self) -> Result<u32, RpcError> {
+        Ok(self.runtime.runtime_get_count())
+    }
+    
+    fn item_exists(&self, id: u32) -> Result<bool, RpcError> {
+        if id == 0 {
+            return Err(RpcError::InvalidParams("ID cannot be zero".to_string()));
+        }
+        
+        Ok(self.runtime.runtime_get_item(id).is_some())
+    }
+}
+```
+
+#### **RPC Server Simulation:**
+```rust
+/// Simulates an RPC server handling requests
+pub struct RpcServer<T: CustomRpc> {
+    rpc_impl: T,
+}
+
+impl<T: CustomRpc> RpcServer<T> {
+    pub fn new(rpc_impl: T) -> Self {
+        Self { rpc_impl }
+    }
+    
+    /// Handle RPC request
+    pub fn handle_request(&self, method: &str, params: RpcParams) -> RpcResponse {
+        match method {
+            "get_item" => {
+                match params.id {
+                    Some(id) => match self.rpc_impl.get_item(id) {
+                        Ok(Some(item)) => RpcResponse::success(ResponseData::Item(item)),
+                        Ok(None) => RpcResponse::error(RpcError::ItemNotFound),
+                        Err(e) => RpcResponse::error(e),
+                    },
+                    None => RpcResponse::error(RpcError::InvalidParams("Missing ID".to_string())),
+                }
+            },
+            "get_all_items" => {
+                match self.rpc_impl.get_all_items() {
+                    Ok(items) => RpcResponse::success(ResponseData::Items(items)),
+                    Err(e) => RpcResponse::error(e),
+                }
+            },
+            "get_items_count" => {
+                match self.rpc_impl.get_items_count() {
+                    Ok(count) => RpcResponse::success(ResponseData::Count(count)),
+                    Err(e) => RpcResponse::error(e),
+                }
+            },
+            "item_exists" => {
+                match params.id {
+                    Some(id) => match self.rpc_impl.item_exists(id) {
+                        Ok(exists) => RpcResponse::success(ResponseData::Exists(exists)),
+                        Err(e) => RpcResponse::error(e),
+                    },
+                    None => RpcResponse::error(RpcError::InvalidParams("Missing ID".to_string())),
+                }
+            },
+            _ => RpcResponse::error(RpcError::InvalidParams("Unknown method".to_string())),
+        }
+    }
+}
+```
+
+#### **RPC Protocol Types:**
+```rust
+/// RPC request parameters
+#[derive(Debug)]
+pub struct RpcParams {
+    pub id: Option<u32>,
+}
+
+/// RPC response data
+#[derive(Debug)]
+pub enum ResponseData {
+    Item(String),
+    Items(Vec<(u32, String)>),
+    Count(u32),
+    Exists(bool),
+}
+
+/// RPC response
+#[derive(Debug)]
+pub struct RpcResponse {
+    pub success: bool,
+    pub data: Option<ResponseData>,
+    pub error: Option<RpcError>,
+}
+
+impl RpcResponse {
+    pub fn success(data: ResponseData) -> Self {
+        Self {
+            success: true,
+            data: Some(data),
             error: None,
-            id: request.id,
         }
     }
     
-    fn error_response(&self, id: u64, code: i32, message: &str) -> RpcResponse {
-        RpcResponse {
-            jsonrpc: "2.0".to_string(),
-            result: None,
-            error: Some(RpcError {
-                code,
-                message: message.to_string(),
-            }),
-            id,
+    pub fn error(error: RpcError) -> Self {
+        Self {
+            success: false,
+            data: None,
+            error: Some(error),
         }
     }
 }
@@ -268,52 +251,49 @@ impl<Rpc: CounterRpc> RpcHandler<Rpc> {
 
 Create comprehensive tests covering:
 
-1. **Counter Pallet Operations:**
-   - Test counter increment functionality
-   - Test counter retrieval
-   - Test getting all counters
+1. **RPC Interface:**
+   - Test all RPC methods with valid parameters
+   - Test error handling for invalid parameters
+   - Verify proper error propagation
 
-**⚠️ IMPORTANT: The pallet example code provided above must be modified to properly implement the RPC system. The current example is only a conceptual demonstration and does not properly implement the integration between pallet, runtime API and RPC.**
+2. **Runtime Bridge:**
+   - Test runtime API integration
+   - Verify data consistency between RPC and runtime
+   - Test edge cases and error conditions
 
-**🔧 NECESSARY MODIFICATION: You must modify all pallet methods to receive a `WeightMeter` as a mutable reference (`&mut WeightMeter`) and call `meter.consume(weight)` before executing each operation. This ensures that weight is properly tracked and limits are respected during RPC calls.**
+3. **Server Simulation:**
+   - Test request handling for all methods
+   - Verify response formatting
+   - Test unknown method handling
 
-2. **Runtime API:**
-   - Test runtime API bridge functionality
-   - Verify correct data flow from pallet to API
-
-3. **RPC Implementation:**
-   - Test all RPC methods
-   - Verify correct return values
-   - Test error handling
-
-4. **JSON-RPC Protocol:**
-   - Test request/response serialization
-   - Test method routing
-   - Test error responses
-   - Test parameter validation
+4. **Error Handling:**
+   - Test all error types
+   - Verify error message formatting
+   - Test error propagation through layers
 
 ### Expected Output
 
-A complete RPC system that:
-- Provides external access to counter pallet state
-- Implements proper JSON-RPC protocol
-- Handles errors gracefully
-- Demonstrates separation between runtime and RPC layers
-- Shows understanding of blockchain external interfaces
+A complete custom RPC system that:
+- Defines clear RPC interfaces
+- Bridges RPC calls to runtime logic
+- Handles errors appropriately
+- Demonstrates separation of concerns
+- Shows understanding of Substrate's RPC architecture
 
 ### Theoretical Context
 
 **RPC in Substrate:**
-- **Purpose:** Allows external applications to interact with the blockchain
-- **Architecture:** RPC layer → Runtime API → Pallet logic
-- **Protocol:** Uses JSON-RPC 2.0 standard
-- **State Queries:** Read blockchain state without submitting transactions
-- **Custom Methods:** Pallets can expose specialized query functions
+- **Purpose:** Allows external applications to query blockchain state
+- **Architecture:** RPC layer → Runtime API → Runtime logic
+- **Separation:** RPC handles protocol, Runtime handles business logic
+- **Efficiency:** Direct state access without transaction overhead
+- **Flexibility:** Custom endpoints for specific application needs
 
-**Runtime API:**
-- Bridge between external RPC calls and runtime logic
-- Defined using `sp_api::decl_runtime_apis!` macro
-- Implemented in runtime using `impl_runtime_apis!` macro
-- Provides versioned interface for external queries
+**Best Practices:**
+- Keep RPC methods simple and focused
+- Validate parameters at RPC layer
+- Handle errors gracefully
+- Use appropriate data types for responses
+- Document RPC interfaces clearly
 
-This system enables rich client applications and external integrations with the blockchain.
+This system demonstrates how Substrate exposes blockchain functionality to external clients through well-designed RPC interfaces.

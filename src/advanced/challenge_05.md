@@ -1,292 +1,326 @@
-## Challenge 5: Simple Custom Origin Pallet
+## Challenge 5: Custom Origin with Permission System
 
 **Difficulty Level:** Advanced
-**Estimated Time:** 2 hours
+**Estimated Time:** 1.5 hours
 
 ### Objective Description
 
-You will implement a pallet with custom origins that demonstrates how to create specialized permission systems beyond the standard `Root` and `Signed` origins. This challenge focuses on understanding how custom origins work in FRAME and how they can be used to implement fine-grained access control.
+You will implement a custom origin system with a hierarchical permission structure. This challenge focuses on understanding how Substrate manages call origins and how to create custom authorization mechanisms for different types of operations.
 
 **Main Concepts Covered:**
-1. **Custom Origins:** Creating specialized permission types
-2. **Origin Filtering:** Controlling who can call specific functions
-3. **Permission Systems:** Implementing role-based access control
-4. **Origin Conversion:** Converting between different origin types
-5. **Access Control:** Fine-grained permission management
+1. **Custom Origins:** Creating specialized origin types beyond Root/Signed/None
+2. **Permission Hierarchy:** Implementing role-based access control
+3. **Origin Filtering:** Controlling which origins can call specific functions
+4. **Role Management:** Dynamic role assignment and validation
+5. **Access Control:** Ensuring proper authorization for sensitive operations
 
 ### Detailed Structures to Implement:
 
 #### **Custom Origin Definition:**
-    ```rust
-/// Custom origins for the pallet
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum Origin {
-    /// Administrative origin - highest level access
+```rust
+/// Custom origin types for the permission system
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CustomOrigin {
+    /// Administrator with full permissions
     Admin,
-    /// Moderator origin - medium level access
-    Moderator,
-    /// Member origin - basic level access
+    /// Regular member with limited permissions
     Member,
 }
 
-impl Origin {
+impl CustomOrigin {
     /// Check if origin has admin privileges
     pub fn is_admin(&self) -> bool {
-        matches!(self, Origin::Admin)
-    }
-    
-    /// Check if origin has at least moderator privileges
-    pub fn is_moderator_or_above(&self) -> bool {
-        matches!(self, Origin::Admin | Origin::Moderator)
+        matches!(self, CustomOrigin::Admin)
     }
     
     /// Check if origin has at least member privileges
     pub fn is_member_or_above(&self) -> bool {
-        matches!(self, Origin::Admin | Origin::Moderator | Origin::Member)
+        matches!(self, CustomOrigin::Admin | CustomOrigin::Member)
     }
 }
 ```
 
-#### **Pallet Configuration:**
-    ```rust
-pub trait Config {
-    type RuntimeOrigin: From<Origin>;
-    type AccountId: Clone + PartialEq + core::fmt::Debug;
+#### **Origin Wrapper:**
+```rust
+/// Wrapper for different origin types
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Origin {
+    /// Standard signed origin
+    Signed(u32), // account_id
+    /// Custom permission-based origin
+    Custom(CustomOrigin),
+    /// Root origin (system level)
+    Root,
 }
 
-pub struct Pallet<T: Config> {
-    /// Maps accounts to their roles
-    roles: std::collections::HashMap<T::AccountId, Origin>,
-    /// Storage for managed data
-    managed_data: std::collections::HashMap<String, String>,
-    /// Event log
-    events: Vec<Event<T::AccountId>>,
-    _phantom: std::marker::PhantomData<T>,
-}
-```
-
-#### **Events:**
-    ```rust
-    #[derive(Clone, Debug, PartialEq)]
-pub enum Event<AccountId> {
-    /// Role was assigned to an account
-    RoleAssigned { account: AccountId, role: Origin },
-    /// Role was revoked from an account
-    RoleRevoked { account: AccountId },
-    /// Data was created by an account
-    DataCreated { key: String, creator: AccountId },
-    /// Data was updated by an account
-    DataUpdated { key: String, updater: AccountId },
-    /// Data was deleted by an account
-    DataDeleted { key: String, deleter: AccountId },
-}
-```
-
-#### **Errors:**
-    ```rust
-    #[derive(Clone, Debug, PartialEq)]
-pub enum Error {
-    /// Origin does not have required permissions
-    InsufficientPermissions,
-    /// Account does not have any assigned role
-    NoRoleAssigned,
-    /// Data key already exists
-    DataAlreadyExists,
-    /// Data key not found
-    DataNotFound,
-    /// Invalid origin type
-    InvalidOrigin,
-}
-```
-
-### Origin Filtering Implementation:
-
-#### **Origin Filters:**
-    ```rust
-impl<T: Config> Pallet<T> {
-    /// Ensure origin is admin
-    fn ensure_admin(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
-        let role = Self::get_role(account).ok_or(Error::NoRoleAssigned)?;
-        if role.is_admin() {
-            Ok(())
-        } else {
-            Err(Error::InsufficientPermissions)
+impl Origin {
+    /// Extract account ID from signed origin
+    pub fn as_signed(&self) -> Option<u32> {
+        match self {
+            Origin::Signed(account_id) => Some(*account_id),
+            _ => None,
         }
     }
     
-    /// Ensure origin is moderator or above
-    fn ensure_moderator_or_above(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
-        let role = Self::get_role(account).ok_or(Error::NoRoleAssigned)?;
-        if role.is_moderator_or_above() {
-            Ok(())
-        } else {
-            Err(Error::InsufficientPermissions)
+    /// Check if origin is root
+    pub fn is_root(&self) -> bool {
+        matches!(self, Origin::Root)
+    }
+    
+    /// Get custom origin if present
+    pub fn as_custom(&self) -> Option<&CustomOrigin> {
+        match self {
+            Origin::Custom(custom) => Some(custom),
+            _ => None,
+        }
+    }
+}
+```
+
+#### **Role Management System:**
+```rust
+use std::collections::HashMap;
+
+/// Manages user roles and permissions
+pub struct RoleManager {
+    /// Maps account IDs to their roles
+    roles: HashMap<u32, CustomOrigin>,
+    /// System administrator account
+    admin_account: u32,
+}
+
+impl RoleManager {
+    pub fn new(admin_account: u32) -> Self {
+        let mut roles = HashMap::new();
+        roles.insert(admin_account, CustomOrigin::Admin);
+        
+        Self {
+            roles,
+            admin_account,
         }
     }
     
-    /// Ensure origin is member or above
-    fn ensure_member_or_above(origin: &T::RuntimeOrigin, account: &T::AccountId) -> Result<(), Error> {
-        let role = Self::get_role(account).ok_or(Error::NoRoleAssigned)?;
-        if role.is_member_or_above() {
-            Ok(())
-        } else {
-            Err(Error::InsufficientPermissions)
-        }
+    /// Assign role to an account
+    pub fn assign_role(&mut self, account_id: u32, role: CustomOrigin) -> Result<(), &'static str> {
+        self.roles.insert(account_id, role);
+        Ok(())
     }
     
     /// Get role for an account
-    fn get_role(account: &T::AccountId) -> Option<Origin> {
-        // In a real implementation, this would query storage
-        None // Placeholder
-    }
-}
-```
-
-#### **Dispatchable Functions with Custom Origins:**
-    ```rust
-impl<T: Config> Pallet<T> {
-    /// Assign a role to an account (Admin only)
-    pub fn assign_role(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        target: T::AccountId,
-        role: Origin,
-    ) -> Result<(), Error> {
-        Self::ensure_admin(&origin, &caller)?;
-        
-        self.roles.insert(target.clone(), role.clone());
-        self.events.push(Event::RoleAssigned { 
-            account: target, 
-            role 
-        });
-        
-        Ok(())
+    pub fn get_role(&self, account_id: u32) -> Option<&CustomOrigin> {
+        self.roles.get(&account_id)
     }
     
-    /// Revoke role from an account (Admin only)
-    pub fn revoke_role(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        target: T::AccountId,
-    ) -> Result<(), Error> {
-        Self::ensure_admin(&origin, &caller)?;
-        
-        self.roles.remove(&target);
-        self.events.push(Event::RoleRevoked { 
-            account: target 
-        });
-        
-        Ok(())
-    }
-    
-    /// Create data (Member or above)
-    pub fn create_data(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        key: String,
-        value: String,
-    ) -> Result<(), Error> {
-        Self::ensure_member_or_above(&origin, &caller)?;
-        
-        if self.managed_data.contains_key(&key) {
-            return Err(Error::DataAlreadyExists);
+    /// Remove role from an account
+    pub fn remove_role(&mut self, account_id: u32) -> Result<(), &'static str> {
+        if account_id == self.admin_account {
+            return Err("Cannot remove admin role from system administrator");
         }
         
-        self.managed_data.insert(key.clone(), value);
-        self.events.push(Event::DataCreated { 
-            key, 
-            creator: caller 
-        });
-        
+        self.roles.remove(&account_id);
         Ok(())
     }
     
-    /// Update data (Moderator or above)
-    pub fn update_data(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        key: String,
-        new_value: String,
-    ) -> Result<(), Error> {
-        Self::ensure_moderator_or_above(&origin, &caller)?;
-        
-        if !self.managed_data.contains_key(&key) {
-            return Err(Error::DataNotFound);
-        }
-        
-        self.managed_data.insert(key.clone(), new_value);
-        self.events.push(Event::DataUpdated { 
-            key, 
-            updater: caller 
-        });
-        
-        Ok(())
-    }
-    
-    /// Delete data (Admin only)
-    pub fn delete_data(
-        &mut self,
-        origin: T::RuntimeOrigin,
-        caller: T::AccountId,
-        key: String,
-    ) -> Result<(), Error> {
-        Self::ensure_admin(&origin, &caller)?;
-        
-        if !self.managed_data.contains_key(&key) {
-            return Err(Error::DataNotFound);
-        }
-        
-        self.managed_data.remove(&key);
-        self.events.push(Event::DataDeleted { 
-            key, 
-            deleter: caller 
-        });
-        
-        Ok(())
-    }
-}
-```
-
-### Helper Functions:
-
-#### **Utility Methods:**
-        ```rust
-impl<T: Config> Pallet<T> {
-    pub fn new() -> Self {
-        Self {
-            roles: std::collections::HashMap::new(),
-            managed_data: std::collections::HashMap::new(),
-            events: Vec::new(),
-            _phantom: std::marker::PhantomData,
-        }
-    }
-    
-    /// Get all accounts with a specific role
-    pub fn get_accounts_with_role(&self, role: &Origin) -> Vec<T::AccountId> {
+    /// List all accounts with specific role
+    pub fn accounts_with_role(&self, role: &CustomOrigin) -> Vec<u32> {
         self.roles
             .iter()
             .filter(|(_, r)| *r == role)
-            .map(|(account, _)| account.clone())
+            .map(|(account_id, _)| *account_id)
             .collect()
     }
-    
-    /// Get data by key
-    pub fn get_data(&self, key: &str) -> Option<String> {
-        self.managed_data.get(key).cloned()
+}
+```
+
+#### **Origin Filter System:**
+```rust
+/// Validates origins against permission requirements
+pub struct OriginFilter {
+    role_manager: RoleManager,
+}
+
+impl OriginFilter {
+    pub fn new(role_manager: RoleManager) -> Self {
+        Self { role_manager }
     }
     
-    /// Get all data keys
-    pub fn get_all_keys(&self) -> Vec<String> {
-        self.managed_data.keys().cloned().collect()
+    /// Convert signed origin to custom origin based on roles
+    pub fn signed_to_custom(&self, account_id: u32) -> Option<CustomOrigin> {
+        self.role_manager.get_role(account_id).cloned()
     }
     
-    /// Take events for testing
-    pub fn take_events(&mut self) -> Vec<Event<T::AccountId>> {
-        std::mem::take(&mut self.events)
+    /// Ensure origin has admin privileges
+    pub fn ensure_admin(&self, origin: &Origin) -> Result<(), &'static str> {
+        match origin {
+            Origin::Root => Ok(()),
+            Origin::Custom(CustomOrigin::Admin) => Ok(()),
+            Origin::Signed(account_id) => {
+                match self.role_manager.get_role(*account_id) {
+                    Some(CustomOrigin::Admin) => Ok(()),
+                    _ => Err("Admin privileges required"),
+                }
+            },
+            _ => Err("Admin privileges required"),
+        }
+    }
+    
+    /// Ensure origin has at least member privileges
+    pub fn ensure_member(&self, origin: &Origin) -> Result<(), &'static str> {
+        match origin {
+            Origin::Root => Ok(()),
+            Origin::Custom(custom) if custom.is_member_or_above() => Ok(()),
+            Origin::Signed(account_id) => {
+                match self.role_manager.get_role(*account_id) {
+                    Some(role) if role.is_member_or_above() => Ok(()),
+                    _ => Err("Member privileges required"),
+                }
+            },
+            _ => Err("Member privileges required"),
+        }
+    }
+    
+    /// Get mutable reference to role manager for admin operations
+    pub fn role_manager_mut(&mut self) -> &mut RoleManager {
+        &mut self.role_manager
+    }
+    
+    /// Get reference to role manager for queries
+    pub fn role_manager(&self) -> &RoleManager {
+        &self.role_manager
+    }
+}
+```
+
+#### **Permission-Based Pallet:**
+```rust
+/// Simple pallet with permission-based operations
+pub struct PermissionPallet {
+    /// Counter that can be modified by members
+    counter: u32,
+    /// Admin-only setting
+    admin_setting: bool,
+    /// Origin filter for permission checks
+    origin_filter: OriginFilter,
+}
+
+impl PermissionPallet {
+    pub fn new(admin_account: u32) -> Self {
+        let role_manager = RoleManager::new(admin_account);
+        let origin_filter = OriginFilter::new(role_manager);
+        
+        Self {
+            counter: 0,
+            admin_setting: false,
+            origin_filter,
+        }
+    }
+    
+    /// Increment counter (requires member privileges)
+    pub fn increment_counter(&mut self, origin: Origin) -> Result<u32, &'static str> {
+        self.origin_filter.ensure_member(&origin)?;
+        
+        self.counter = self.counter.saturating_add(1);
+        Ok(self.counter)
+    }
+    
+    /// Reset counter (requires admin privileges)
+    pub fn reset_counter(&mut self, origin: Origin) -> Result<(), &'static str> {
+        self.origin_filter.ensure_admin(&origin)?;
+        
+        self.counter = 0;
+        Ok(())
+    }
+    
+    /// Toggle admin setting (requires admin privileges)
+    pub fn toggle_admin_setting(&mut self, origin: Origin) -> Result<bool, &'static str> {
+        self.origin_filter.ensure_admin(&origin)?;
+        
+        self.admin_setting = !self.admin_setting;
+        Ok(self.admin_setting)
+    }
+    
+    /// Assign role to account (requires admin privileges)
+    pub fn assign_role(
+        &mut self,
+        origin: Origin,
+        target_account: u32,
+        role: CustomOrigin,
+    ) -> Result<(), &'static str> {
+        self.origin_filter.ensure_admin(&origin)?;
+        
+        self.origin_filter
+            .role_manager_mut()
+            .assign_role(target_account, role)
+    }
+    
+    /// Remove role from account (requires admin privileges)
+    pub fn remove_role(
+        &mut self,
+        origin: Origin,
+        target_account: u32,
+    ) -> Result<(), &'static str> {
+        self.origin_filter.ensure_admin(&origin)?;
+        
+        self.origin_filter
+            .role_manager_mut()
+            .remove_role(target_account)
+    }
+    
+    /// Get counter value (public read)
+    pub fn get_counter(&self) -> u32 {
+        self.counter
+    }
+    
+    /// Get admin setting (public read)
+    pub fn get_admin_setting(&self) -> bool {
+        self.admin_setting
+    }
+    
+    /// Get user role (public read)
+    pub fn get_user_role(&self, account_id: u32) -> Option<&CustomOrigin> {
+        self.origin_filter.role_manager().get_role(account_id)
+    }
+    
+    /// List all admins (public read)
+    pub fn list_admins(&self) -> Vec<u32> {
+        self.origin_filter
+            .role_manager()
+            .accounts_with_role(&CustomOrigin::Admin)
+    }
+    
+    /// List all members (public read)
+    pub fn list_members(&self) -> Vec<u32> {
+        self.origin_filter
+            .role_manager()
+            .accounts_with_role(&CustomOrigin::Member)
+    }
+}
+```
+
+#### **Origin Construction Helpers:**
+```rust
+/// Helper functions for creating origins
+pub struct OriginBuilder;
+
+impl OriginBuilder {
+    /// Create a signed origin
+    pub fn signed(account_id: u32) -> Origin {
+        Origin::Signed(account_id)
+    }
+    
+    /// Create a root origin
+    pub fn root() -> Origin {
+        Origin::Root
+    }
+    
+    /// Create a custom admin origin
+    pub fn admin() -> Origin {
+        Origin::Custom(CustomOrigin::Admin)
+    }
+    
+    /// Create a custom member origin
+    pub fn member() -> Origin {
+        Origin::Custom(CustomOrigin::Member)
     }
 }
 ```
@@ -295,47 +329,61 @@ impl<T: Config> Pallet<T> {
 
 Create comprehensive tests covering:
 
-1. **Role Management:**
-   - Test role assignment by admin
-   - Test role revocation by admin
-   - Test permission denial for non-admin role operations
+1. **Custom Origin Types:**
+   - Test origin creation and comparison
+   - Verify origin type checking methods
+   - Test origin conversion functions
 
-2. **Permission Levels:**
-   - Test member-level operations (create data)
-   - Test moderator-level operations (update data)
-   - Test admin-level operations (delete data)
+2. **Role Management:**
+   - Test role assignment and removal
+   - Verify role queries and listings
+   - Test admin protection mechanisms
 
-3. **Access Control:**
-   - Test permission escalation prevention
-   - Test proper error handling for insufficient permissions
-   - Test role-based function access
+3. **Permission Filtering:**
+   - Test admin-only operations
+   - Test member-level operations
+   - Verify permission denial for unauthorized origins
 
-4. **Data Management:**
-   - Test data creation, update, and deletion
-   - Test error handling for duplicate/missing data
-   - Test proper event emission
+4. **Pallet Integration:**
+   - Test all pallet operations with different origins
+   - Verify proper error handling for unauthorized access
+   - Test role management through pallet interface
+
+5. **Edge Cases:**
+   - Test operations with invalid origins
+   - Test role changes and their effects
+   - Test system administrator protection
 
 ### Expected Output
 
 A complete custom origin system that:
-- Implements hierarchical permission levels
-- Properly filters function access based on roles
-- Demonstrates fine-grained access control
-- Shows understanding of FRAME origin system
-- Handles errors gracefully
+- Defines hierarchical permission levels
+- Implements role-based access control
+- Provides origin filtering and validation
+- Demonstrates proper authorization patterns
+- Shows understanding of Substrate's origin system
 
 ### Theoretical Context
 
-**Custom Origins in FRAME:**
-- **Purpose:** Enable fine-grained access control beyond basic Root/Signed
-- **Implementation:** Custom enum types that implement origin traits
-- **Integration:** Works with FRAME's origin filtering system
-- **Use Cases:** Role-based access, governance systems, specialized permissions
+**Origins in Substrate:**
+- **Purpose:** Identify and authorize the source of extrinsic calls
+- **Types:** Root (system), Signed (users), None (unsigned), Custom (specialized)
+- **Filtering:** Origins are checked against function requirements
+- **Hierarchy:** Custom origins can implement complex permission structures
+- **Security:** Proper origin checking prevents unauthorized operations
 
-**Origin Filtering:**
-- Functions can specify required origin types
-- Runtime validates origins before dispatch
-- Enables complex permission hierarchies
-- Prevents unauthorized access to sensitive functions
+**Custom Origins:**
+- Allow for specialized authorization beyond basic signed/root
+- Enable role-based access control systems
+- Support complex permission hierarchies
+- Integrate with pallet-specific authorization logic
+- Provide flexibility for governance and administrative functions
 
-This system is essential for building sophisticated governance and permission systems in Substrate-based blockchains.
+**Best Practices:**
+- Always validate origins before executing sensitive operations
+- Implement clear permission hierarchies
+- Protect system-critical roles (like admin accounts)
+- Provide query functions for transparency
+- Handle authorization errors gracefully
+
+This system demonstrates how to implement sophisticated authorization mechanisms using Substrate's origin system.
