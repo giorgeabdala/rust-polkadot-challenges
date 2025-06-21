@@ -1,55 +1,24 @@
-## Challenge 12: Simple Runtime Integration (Simplified)
+## Challenge 12: Simple Runtime Integration
 
 **Difficulty Level:** Advanced
-**Estimated Time:** 2 hours
+**Estimated Time:** 1.5 hours
 
 ### Objective Description
 
-You will implement a simplified runtime that integrates two basic pallets (System and Balances) to demonstrate how pallets work together in a Substrate runtime. This challenge focuses on understanding runtime construction and pallet integration with essential external dependencies.
+You will implement a simplified runtime that integrates two basic pallets (System and Balances) to demonstrate how pallets work together in a blockchain runtime. This challenge focuses on understanding runtime construction and pallet integration without complex external dependencies.
 
-**Main Concepts Covered:**
+### Main Concepts Covered
+
 1. **Runtime Construction**: How to build a basic runtime
 2. **Pallet Integration**: Integration of multiple pallets
-3. **Runtime Configuration**: Runtime parameter configuration
-4. **Genesis Configuration**: Initial blockchain state
-
-### Project Setup
-
-Before starting, you will need to configure the necessary dependencies:
-
-#### **Cargo.toml:**
-```toml
-[package]
-name = "runtime-integration-challenge"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-```
-
-#### **How to configure (choose one option):**
-
-**Option 1 - Using cargo add (recommended):**
-```bash
-cargo add codec --package parity-scale-codec --features derive
-cargo add scale-info --features derive
-```
-
-**Option 2 - Editing Cargo.toml manually:**
-```bash
-# Edit the Cargo.toml file above and then run:
-cargo build
-```
+3. **Cross-Pallet Communication**: How pallets interact with each other
+4. **Event System**: Unified event handling across pallets
+5. **Error Handling**: Runtime-level error management
 
 ### Structures to Implement
 
 #### **Basic Runtime Types:**
 ```rust
-use codec::{Encode, Decode};
-use scale_info::TypeInfo;
-
 // Fundamental runtime types
 pub type AccountId = String; // Simplified
 pub type BlockNumber = u64;
@@ -57,22 +26,23 @@ pub type Hash = [u8; 32];
 pub type Balance = u128;
 ```
 
-#### **System Pallet (Simplified):**
+#### **System Pallet:**
 ```rust
 pub mod system {
     use super::*;
     use std::collections::HashMap;
 
     pub trait Config {
-        type AccountId: Clone + PartialEq + core::fmt::Debug + Encode + Decode + TypeInfo;
-        type BlockNumber: Clone + Copy + Default + PartialEq + PartialOrd + core::fmt::Debug + Encode + Decode + TypeInfo;
-        type Hash: Clone + PartialEq + core::fmt::Debug + Encode + Decode + TypeInfo;
+        type AccountId: Clone + PartialEq + core::fmt::Debug;
+        type BlockNumber: Clone + Copy + Default + PartialEq + PartialOrd + core::fmt::Debug;
+        type Hash: Clone + PartialEq + core::fmt::Debug;
     }
 
-    #[derive(Clone, Debug, PartialEq, Encode, Decode, TypeInfo)]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum Event<T: Config> {
         NewAccount { account: T::AccountId },
         BlockFinalized { number: T::BlockNumber },
+        ExtrinsicSuccess { account: T::AccountId },
     }
 
     pub struct Pallet<T: Config> {
@@ -114,6 +84,10 @@ pub mod system {
             self.current_block_number
         }
 
+        pub fn record_extrinsic_success(&mut self, account: T::AccountId) {
+            self.events.push(Event::ExtrinsicSuccess { account });
+        }
+
         pub fn take_events(&mut self) -> Vec<Event<T>> {
             std::mem::take(&mut self.events)
         }
@@ -121,7 +95,7 @@ pub mod system {
 }
 ```
 
-#### **Balances Pallet (Simplified):**
+#### **Balances Pallet:**
 ```rust
 pub mod balances {
     use super::*;
@@ -130,11 +104,10 @@ pub mod balances {
     pub trait Config: system::Config {
         type Balance: Clone + Copy + Default + PartialEq + PartialOrd + core::fmt::Debug +
                      core::ops::Add<Output = Self::Balance> + 
-                     core::ops::Sub<Output = Self::Balance> +
-                     Encode + Decode + TypeInfo;
+                     core::ops::Sub<Output = Self::Balance>;
     }
 
-    #[derive(Clone, Debug, PartialEq, Encode, Decode, TypeInfo)]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum Event<T: Config> {
         Transfer { 
             from: T::AccountId, 
@@ -145,12 +118,17 @@ pub mod balances {
             account: T::AccountId, 
             balance: T::Balance 
         },
+        Endowed {
+            account: T::AccountId,
+            balance: T::Balance,
+        },
     }
 
-    #[derive(Clone, Debug, PartialEq, Encode, Decode, TypeInfo)]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum Error {
         InsufficientBalance,
         AccountNotFound,
+        ZeroAmount,
     }
 
     pub struct Pallet<T: Config> {
@@ -172,6 +150,14 @@ pub mod balances {
 
         pub fn set_balance(&mut self, account: T::AccountId, balance: T::Balance) {
             let old_balance = self.balances.get(&account).copied().unwrap_or_default();
+            
+            if old_balance == T::Balance::default() && balance > T::Balance::default() {
+                self.events.push(Event::Endowed { 
+                    account: account.clone(), 
+                    balance 
+                });
+            }
+            
             self.balances.insert(account.clone(), balance);
             
             // Adjust total issuance
@@ -190,6 +176,10 @@ pub mod balances {
             to: T::AccountId,
             amount: T::Balance,
         ) -> Result<(), Error> {
+            if amount == T::Balance::default() {
+                return Err(Error::ZeroAmount);
+            }
+
             let from_balance = self.balances.get(&from).copied().unwrap_or_default();
             
             if from_balance < amount {
@@ -198,6 +188,7 @@ pub mod balances {
 
             let to_balance = self.balances.get(&to).copied().unwrap_or_default();
 
+            // Update balances
             self.balances.insert(from.clone(), from_balance - amount);
             self.balances.insert(to.clone(), to_balance + amount);
 
@@ -220,245 +211,252 @@ pub mod balances {
 }
 ```
 
-### Runtime Configuration and Integration
-
-#### **Runtime Configuration:**
+#### **Runtime Events (Unified):**
 ```rust
-// Runtime configuration that ties all pallets together
-pub struct RuntimeConfig;
-
-impl system::Config for RuntimeConfig {
-    type AccountId = AccountId;
-    type BlockNumber = BlockNumber;
-    type Hash = Hash;
+#[derive(Clone, Debug, PartialEq)]
+pub enum RuntimeEvent<T: RuntimeConfig> {
+    System(system::Event<T>),
+    Balances(balances::Event<T>),
 }
 
-impl balances::Config for RuntimeConfig {
-    type Balance = Balance;
+impl<T: RuntimeConfig> From<system::Event<T>> for RuntimeEvent<T> {
+    fn from(event: system::Event<T>) -> Self {
+        RuntimeEvent::System(event)
+    }
+}
+
+impl<T: RuntimeConfig> From<balances::Event<T>> for RuntimeEvent<T> {
+    fn from(event: balances::Event<T>) -> Self {
+        RuntimeEvent::Balances(event)
+    }
 }
 ```
 
-#### **Complete Runtime:**
+#### **Runtime Configuration:**
 ```rust
-pub struct Runtime {
-    pub system: system::Pallet<RuntimeConfig>,
-    pub balances: balances::Pallet<RuntimeConfig>,
+pub trait RuntimeConfig: system::Config + balances::Config {
+    // Runtime-specific configuration can go here
+}
+```
+
+#### **Main Runtime:**
+```rust
+pub struct Runtime<T: RuntimeConfig> {
+    pub system: system::Pallet<T>,
+    pub balances: balances::Pallet<T>,
+    events: Vec<RuntimeEvent<T>>,
+    _phantom: core::marker::PhantomData<T>,
 }
 
-impl Runtime {
+impl<T: RuntimeConfig> Runtime<T> {
     pub fn new() -> Self {
         Self {
             system: system::Pallet::new(),
             balances: balances::Pallet::new(),
+            events: Vec::new(),
+            _phantom: core::marker::PhantomData,
         }
     }
 
-    /// Initialize genesis state
-    pub fn initialize_genesis(&mut self, accounts: Vec<(AccountId, Balance)>) {
-        for (account, balance) in accounts {
+    // Genesis configuration - set initial state
+    pub fn genesis_config(
+        &mut self,
+        initial_balances: Vec<(T::AccountId, T::Balance)>,
+    ) {
+        for (account, balance) in initial_balances {
             self.balances.set_balance(account, balance);
         }
+        
+        // Collect genesis events
+        self.collect_events();
     }
 
-    /// Process a transfer transaction
-    pub fn transfer(
+    // Execute a transfer extrinsic
+    pub fn execute_transfer(
         &mut self,
-        from: AccountId,
-        to: AccountId,
-        amount: Balance,
+        origin: T::AccountId,
+        to: T::AccountId,
+        amount: T::Balance,
     ) -> Result<(), balances::Error> {
-        // Increment nonce for the sender
-        self.system.inc_account_nonce(&from);
+        // Increment nonce (simulating extrinsic execution)
+        self.system.inc_account_nonce(&origin);
         
-        // Perform the transfer
-        self.balances.transfer(from, to, amount)
+        // Execute transfer
+        let result = self.balances.transfer(origin.clone(), to, amount);
+        
+        // Record success if transfer succeeded
+        if result.is_ok() {
+            self.system.record_extrinsic_success(origin);
+        }
+        
+        // Collect events from all pallets
+        self.collect_events();
+        
+        result
     }
 
-    /// Finalize a block
-    pub fn finalize_block(&mut self, block_number: BlockNumber) {
+    // Finalize a block
+    pub fn finalize_block(&mut self, block_number: T::BlockNumber) {
         self.system.finalize_block(block_number);
+        self.collect_events();
     }
 
-    /// Get all events from all pallets
-    pub fn take_all_events(&mut self) -> Vec<String> {
-        let mut all_events = Vec::new();
-        
+    // Collect events from all pallets
+    fn collect_events(&mut self) {
         // Collect system events
         for event in self.system.take_events() {
-            match event {
-                system::Event::NewAccount { account } => {
-                    all_events.push(format!("System: New account created: {}", account));
-                },
-                system::Event::BlockFinalized { number } => {
-                    all_events.push(format!("System: Block {} finalized", number));
-                },
-            }
+            self.events.push(RuntimeEvent::System(event));
         }
         
-        // Collect balance events
+        // Collect balances events
         for event in self.balances.take_events() {
-            match event {
-                balances::Event::Transfer { from, to, amount } => {
-                    all_events.push(format!("Balances: Transfer {} from {} to {}", amount, from, to));
-                },
-                balances::Event::BalanceSet { account, balance } => {
-                    all_events.push(format!("Balances: Balance set for {}: {}", account, balance));
-                },
-            }
-        }
-        
-        all_events
-    }
-
-    /// Get runtime statistics
-    pub fn get_stats(&self) -> RuntimeStats {
-        RuntimeStats {
-            total_accounts: self.system.account_nonces.len(),
-            total_balance: self.balances.total_issuance(),
-            current_block: self.system.block_number(),
+            self.events.push(RuntimeEvent::Balances(event));
         }
     }
-}
 
-#[derive(Debug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct RuntimeStats {
-    pub total_accounts: usize,
-    pub total_balance: Balance,
-    pub current_block: BlockNumber,
+    // Get all runtime events
+    pub fn take_events(&mut self) -> Vec<RuntimeEvent<T>> {
+        std::mem::take(&mut self.events)
+    }
+
+    // Query methods
+    pub fn account_balance(&self, account: &T::AccountId) -> T::Balance {
+        self.balances.balance(account)
+    }
+
+    pub fn account_nonce(&self, account: &T::AccountId) -> u32 {
+        self.system.account_nonce(account)
+    }
+
+    pub fn current_block(&self) -> T::BlockNumber {
+        self.system.block_number()
+    }
+
+    pub fn total_issuance(&self) -> T::Balance {
+        self.balances.total_issuance()
+    }
 }
 ```
 
-### Implementation Requirements:
+### Test Configuration
 
-1. **System Pallet**: Implement account management and block finalization with SCALE codec
-2. **Balances Pallet**: Implement balance tracking and transfers with SCALE codec
-3. **Runtime Configuration**: Connect pallets with proper types
-4. **Runtime Integration**: Coordinate pallet interactions
+#### **Test Runtime Config:**
+```rust
+struct TestRuntimeConfig;
 
-### Test Configuration:
+impl system::Config for TestRuntimeConfig {
+    type AccountId = String;
+    type BlockNumber = u64;
+    type Hash = [u8; 32];
+}
+
+impl balances::Config for TestRuntimeConfig {
+    type Balance = u128;
+}
+
+impl RuntimeConfig for TestRuntimeConfig {}
+
+type TestRuntime = Runtime<TestRuntimeConfig>;
+```
+
+### Tests
+
+Create comprehensive tests covering:
+
+#### **Test Scenarios:**
+
+1. **Runtime Construction:**
+   - Test runtime initialization
+   - Test pallet integration
+   - Test genesis configuration
+
+2. **Cross-Pallet Communication:**
+   - Test system pallet tracking account nonces
+   - Test balances pallet operations
+   - Test event propagation between pallets
+
+3. **Extrinsic Execution:**
+   - Test successful transfer execution
+   - Test failed transfer handling
+   - Test nonce incrementation
+
+4. **Block Lifecycle:**
+   - Test block finalization
+   - Test event collection across blocks
+   - Test state persistence
+
+5. **Event System:**
+   - Test unified event handling
+   - Test event ordering
+   - Test event data integrity
+
+6. **Integration Tests:**
+   - Test complete runtime workflow
+   - Test multiple accounts and transfers
+   - Test runtime state consistency
+
+### Example Usage
 
 ```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn runtime_initialization_works() {
-        let mut runtime = Runtime::new();
-        
-        // Initialize with some accounts
-        let genesis_accounts = vec![
-            ("alice".to_string(), 1000),
-            ("bob".to_string(), 500),
-        ];
-        
-        runtime.initialize_genesis(genesis_accounts);
-        
-        let stats = runtime.get_stats();
-        assert_eq!(stats.total_balance, 1500);
-    }
-
-    #[test]
-    fn transfer_works() {
-        let mut runtime = Runtime::new();
-        
-        // Initialize accounts
-        runtime.initialize_genesis(vec![
-            ("alice".to_string(), 1000),
-            ("bob".to_string(), 500),
-        ]);
-        
-        // Perform transfer
-        let result = runtime.transfer("alice".to_string(), "bob".to_string(), 200);
-        assert!(result.is_ok());
-        
-        // Check balances
-        assert_eq!(runtime.balances.balance(&"alice".to_string()), 800);
-        assert_eq!(runtime.balances.balance(&"bob".to_string()), 700);
-        
-        // Check events
-        let events = runtime.take_all_events();
-        assert!(events.iter().any(|e| e.contains("Transfer 200 from alice to bob")));
-    }
-
-    #[test]
-    fn insufficient_balance_fails() {
-        let mut runtime = Runtime::new();
-        
-        runtime.initialize_genesis(vec![
-            ("alice".to_string(), 100),
-        ]);
-        
-        let result = runtime.transfer("alice".to_string(), "bob".to_string(), 200);
-        assert_eq!(result, Err(balances::Error::InsufficientBalance));
-    }
-
-    #[test]
-    fn block_finalization_works() {
-        let mut runtime = Runtime::new();
-        
-        runtime.finalize_block(1);
-        runtime.finalize_block(2);
-        
-        let stats = runtime.get_stats();
-        assert_eq!(stats.current_block, 2);
-        
-        let events = runtime.take_all_events();
-        assert!(events.iter().any(|e| e.contains("Block 1 finalized")));
-        assert!(events.iter().any(|e| e.contains("Block 2 finalized")));
-    }
-
-    #[test]
-    fn account_nonce_tracking_works() {
-        let mut runtime = Runtime::new();
-        
-        runtime.initialize_genesis(vec![
-            ("alice".to_string(), 1000),
-        ]);
-        
-        // First transfer creates account event
-        runtime.transfer("alice".to_string(), "bob".to_string(), 100).unwrap();
-        let events = runtime.take_all_events();
-        assert!(events.iter().any(|e| e.contains("New account created: alice")));
-        
-        // Second transfer doesn't create account event
-        runtime.transfer("alice".to_string(), "bob".to_string(), 100).unwrap();
-        let events = runtime.take_all_events();
-        assert!(!events.iter().any(|e| e.contains("New account created: alice")));
-    }
-
-    #[test]
-    fn scale_encoding_works() {
-        let stats = RuntimeStats {
-            total_accounts: 5,
-            total_balance: 10000,
-            current_block: 42,
-        };
-        
-        let encoded = stats.encode();
-        let decoded = RuntimeStats::decode(&mut &encoded[..]).unwrap();
-        assert_eq!(stats, decoded);
-    }
+fn main() {
+    let mut runtime = TestRuntime::new();
+    
+    // Set up genesis state
+    runtime.genesis_config(vec![
+        ("alice".to_string(), 1000),
+        ("bob".to_string(), 500),
+    ]);
+    
+    println!("Genesis events: {:?}", runtime.take_events());
+    
+    // Execute a transfer
+    let result = runtime.execute_transfer(
+        "alice".to_string(),
+        "bob".to_string(),
+        100,
+    );
+    
+    println!("Transfer result: {:?}", result);
+    println!("Transfer events: {:?}", runtime.take_events());
+    
+    // Check balances
+    println!("Alice balance: {}", runtime.account_balance(&"alice".to_string()));
+    println!("Bob balance: {}", runtime.account_balance(&"bob".to_string()));
+    println!("Alice nonce: {}", runtime.account_nonce(&"alice".to_string()));
+    
+    // Finalize block
+    runtime.finalize_block(1);
+    println!("Block events: {:?}", runtime.take_events());
 }
 ```
 
 ### Expected Output
 
-A functional runtime that:
-- Compiles without errors
-- Passes all unit tests
-- Demonstrates pallet integration with SCALE codec
-- Shows runtime configuration
-- Implements basic blockchain functionality
+A complete runtime integration system that:
+- Demonstrates pallet integration within a runtime
+- Shows cross-pallet communication patterns
+- Implements unified event handling
+- Provides runtime-level state management
+- Shows understanding of blockchain runtime architecture
 
 ### Theoretical Context
 
-**Runtime in Substrate:** The runtime is the core logic of a blockchain, containing all the pallets and their interactions. It's compiled to WebAssembly and executed by the blockchain nodes.
+**Runtime Architecture:**
+- **Pallets**: Modular components providing specific functionality
+- **Integration**: How pallets work together to form a complete runtime
+- **Events**: Unified notification system across all pallets
+- **State**: Coordinated state management across multiple pallets
 
-**SCALE Codec in Substrate:** Substrate uses the SCALE (Simple Concatenated Aggregate Little-Endian) codec for efficient binary serialization. The `codec` and `scale-info` dependencies are essential for understanding how data is encoded and decoded in the blockchain.
+**Key Concepts:**
+- **Modularity**: Each pallet handles specific concerns
+- **Composition**: Runtime is composed of multiple pallets
+- **Communication**: Pallets can interact through the runtime
+- **Consistency**: Runtime ensures consistent state across pallets
 
-**Pallet Integration:** Pallets work together through shared types and configurations. The runtime acts as the coordinator, ensuring proper interaction between different modules.
+**Simplifications:**
+- **No External Dependencies**: Pure Rust implementation without complex codecs
+- **Simple Types**: Basic types instead of complex Substrate types
+- **Direct Integration**: Straightforward pallet communication patterns
+- **Minimal Overhead**: Focus on concepts without implementation complexity
 
-**Genesis Configuration:** The initial state of the blockchain is set during genesis, establishing the starting balances and accounts.
-
-This simplified version focuses on the essential concepts of runtime construction and pallet integration, while maintaining the essential external dependencies for proper SCALE serialization. 
+This challenge teaches essential runtime integration concepts while maintaining focus on the core architectural patterns that make modular blockchain runtimes possible. 
