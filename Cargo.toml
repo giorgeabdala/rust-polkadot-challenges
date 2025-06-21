@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-parity-scale-codec = "3.7.5"
-scale-info = "2.11.6"
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"

@@ -1,18 +1,17 @@
-## Challenge 7: Inherents - Timestamp and External Data
+## Challenge 7: Inherents - Timestamp and External Data (Simplified)
 
 **Difficulty Level:** Advanced
 **Estimated Time:** 2 hours
 
 ### Objective Description
 
-You will implement a system that handles inherent data - mandatory information that must be included in every block. This challenge focuses on understanding how inherents work in Substrate, particularly timestamp inherents and how external data is automatically included in blocks without requiring user transactions.
+You will implement a simplified inherent data system that demonstrates how mandatory information (like timestamps) is included in every block. This challenge focuses on understanding the core concept of inherents with essential external dependencies.
 
 **Main Concepts Covered:**
 1. **Inherent Data:** Mandatory data included in every block
 2. **Timestamp Inherents:** Block timestamp management
-3. **Inherent Data Providers:** Sources of inherent data
+3. **Data Validation:** Ensuring inherent data correctness
 4. **Block Construction:** How inherents are included during block building
-5. **Validation:** Ensuring inherent data correctness
 
 ### Project Setup
 
@@ -46,18 +45,17 @@ cargo build
 
 ### Detailed Structures to Implement:
 
-#### **Inherent Data Types:**
+#### **Simple Inherent Data System:**
 ```rust
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
-/// Identifier for different types of inherent data
+/// Identifier for inherent data
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InherentIdentifier(pub [u8; 8]);
 
 impl InherentIdentifier {
     pub const TIMESTAMP: InherentIdentifier = InherentIdentifier(*b"timstap0");
-    pub const BLOCK_AUTHOR: InherentIdentifier = InherentIdentifier(*b"author00");
 }
 
 /// Container for inherent data
@@ -135,31 +133,15 @@ impl TimestampInherentDataProvider {
     pub fn timestamp(&self) -> Timestamp {
         self.timestamp
     }
-}
-
-/// Trait for providing inherent data
-pub trait InherentDataProvider {
-    /// The identifier for this inherent data
-    fn identifier() -> InherentIdentifier;
     
-    /// Provide inherent data for block construction
-    fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), &'static str>;
-    
-    /// Check if the inherent data is valid
-    fn check_inherent(&self, inherent_data: &InherentData) -> Result<(), &'static str>;
-}
-
-impl InherentDataProvider for TimestampInherentDataProvider {
-    fn identifier() -> InherentIdentifier {
-        InherentIdentifier::TIMESTAMP
+    /// Provide timestamp inherent data
+    pub fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), &'static str> {
+        inherent_data.put_data(InherentIdentifier::TIMESTAMP, &self.timestamp)
     }
     
-    fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), &'static str> {
-        inherent_data.put_data(Self::identifier(), &self.timestamp)
-    }
-    
-    fn check_inherent(&self, inherent_data: &InherentData) -> Result<(), &'static str> {
-        let timestamp: Option<Timestamp> = inherent_data.get_data(&Self::identifier())?;
+    /// Check if the timestamp inherent data is valid
+    pub fn check_inherent(&self, inherent_data: &InherentData) -> Result<(), &'static str> {
+        let timestamp: Option<Timestamp> = inherent_data.get_data(&InherentIdentifier::TIMESTAMP)?;
         
         match timestamp {
             Some(ts) => {
@@ -181,110 +163,6 @@ impl InherentDataProvider for TimestampInherentDataProvider {
 }
 ```
 
-#### **Block Author Inherent:**
-    ```rust
-/// Block author identifier
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct AuthorId(pub u32);
-
-impl AuthorId {
-    pub fn new(id: u32) -> Self {
-        Self(id)
-    }
-    
-    pub fn as_u32(&self) -> u32 {
-        self.0
-    }
-}
-
-/// Block author inherent data provider
-pub struct AuthorInherentDataProvider {
-    author: AuthorId,
-}
-
-impl AuthorInherentDataProvider {
-    pub fn new(author_id: u32) -> Self {
-        Self { 
-            author: AuthorId::new(author_id)
-        }
-    }
-    
-    pub fn author(&self) -> AuthorId {
-        self.author
-    }
-}
-
-impl InherentDataProvider for AuthorInherentDataProvider {
-    fn identifier() -> InherentIdentifier {
-        InherentIdentifier::BLOCK_AUTHOR
-    }
-    
-    fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), &'static str> {
-        inherent_data.put_data(Self::identifier(), &self.author)
-    }
-    
-    fn check_inherent(&self, inherent_data: &InherentData) -> Result<(), &'static str> {
-        let author: Option<AuthorId> = inherent_data.get_data(&Self::identifier())?;
-        
-        match author {
-            Some(_) => Ok(()), // Any valid author ID is acceptable
-            None => Err("Missing block author inherent"),
-        }
-    }
-}
-```
-
-### Inherent Processing System:
-
-#### **Inherent Data Manager:**
-    ```rust
-pub struct InherentDataManager {
-    providers: Vec<Box<dyn InherentDataProvider>>,
-}
-
-impl InherentDataManager {
-    pub fn new() -> Self {
-        Self {
-            providers: Vec::new(),
-        }
-    }
-    
-    /// Register an inherent data provider
-    pub fn register_provider<P: InherentDataProvider + 'static>(&mut self, provider: P) {
-        self.providers.push(Box::new(provider));
-    }
-    
-    /// Create inherent data for block construction
-    pub fn create_inherent_data(&self) -> Result<InherentData, &'static str> {
-        let mut inherent_data = InherentData::new();
-        
-        for provider in &self.providers {
-            provider.provide_inherent_data(&mut inherent_data)?;
-        }
-        
-        Ok(inherent_data)
-    }
-    
-    /// Validate inherent data in a block
-    pub fn validate_inherent_data(&self, inherent_data: &InherentData) -> Result<(), &'static str> {
-        for provider in &self.providers {
-            provider.check_inherent(inherent_data)?;
-        }
-        
-        Ok(())
-    }
-    
-    /// Get all required inherent identifiers
-    pub fn required_identifiers(&self) -> Vec<InherentIdentifier> {
-        // In a real implementation, this would be determined by the providers
-        vec![
-            InherentIdentifier::TIMESTAMP,
-            InherentIdentifier::BLOCK_AUTHOR,
-        ]
-            }
-        }
-        ```
-
 #### **Block Construction with Inherents:**
 ```rust
 #[derive(Debug, Clone, PartialEq)]
@@ -299,7 +177,6 @@ pub struct BlockHeader {
     pub number: u64,
     pub parent_hash: [u8; 32],
     pub timestamp: Timestamp,
-    pub author: AuthorId,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -309,12 +186,14 @@ pub struct Transaction {
 }
 
 pub struct BlockBuilder {
-    manager: InherentDataManager,
+    timestamp_provider: TimestampInherentDataProvider,
 }
 
 impl BlockBuilder {
-    pub fn new(manager: InherentDataManager) -> Self {
-        Self { manager }
+    pub fn new() -> Self {
+        Self {
+            timestamp_provider: TimestampInherentDataProvider::new(),
+        }
     }
     
     /// Build a new block with inherent data
@@ -325,20 +204,18 @@ impl BlockBuilder {
         transactions: Vec<Transaction>,
     ) -> Result<Block, &'static str> {
         // Create inherent data
-        let inherents = self.manager.create_inherent_data()?;
+        let mut inherents = InherentData::new();
+        self.timestamp_provider.provide_inherent_data(&mut inherents)?;
         
-        // Extract timestamp and author from inherents
+        // Extract timestamp from inherents
         let timestamp: Timestamp = inherents.get_data(&InherentIdentifier::TIMESTAMP)?
             .ok_or("Missing timestamp in inherents")?;
-        let author: AuthorId = inherents.get_data(&InherentIdentifier::BLOCK_AUTHOR)?
-            .ok_or("Missing author in inherents")?;
         
         // Create block header
         let header = BlockHeader {
             number,
             parent_hash,
             timestamp,
-            author,
         };
         
         // Create complete block
@@ -354,20 +231,14 @@ impl BlockBuilder {
     /// Validate a block's inherent data
     pub fn validate_block(&self, block: &Block) -> Result<(), &'static str> {
         // Validate inherent data
-        self.manager.validate_inherent_data(&block.inherents)?;
+        self.timestamp_provider.check_inherent(&block.inherents)?;
         
         // Validate header consistency with inherents
         let inherent_timestamp: Timestamp = block.inherents.get_data(&InherentIdentifier::TIMESTAMP)?
             .ok_or("Missing timestamp in inherents")?;
-        let inherent_author: AuthorId = block.inherents.get_data(&InherentIdentifier::BLOCK_AUTHOR)?
-            .ok_or("Missing author in inherents")?;
         
         if block.header.timestamp != inherent_timestamp {
             return Err("Header timestamp doesn't match inherent timestamp");
-        }
-        
-        if block.header.author != inherent_author {
-            return Err("Header author doesn't match inherent author");
         }
         
         Ok(())
@@ -375,109 +246,101 @@ impl BlockBuilder {
 }
 ```
 
-### Mock Codec Implementation:
+### Implementation Requirements:
+
+1. **`InherentData`**: Implement the container with serde/bincode encoding
+2. **`Timestamp`**: Implement with proper serialization
+3. **`TimestampInherentDataProvider`**: Implement data provision and validation
+4. **`BlockBuilder`**: Implement block construction and validation
+
+### Test Configuration:
 
 ```rust
-/// Simple codec trait for encoding/decoding
-pub mod codec {
-    pub trait Encode {
-        fn encode(&self) -> Vec<u8>;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inherent_data_serialization_works() {
+        let mut inherents = InherentData::new();
+        let timestamp = Timestamp(1234567890);
+        
+        inherents.put_data(InherentIdentifier::TIMESTAMP, &timestamp).unwrap();
+        assert!(inherents.has_data(&InherentIdentifier::TIMESTAMP));
+        
+        let stored_timestamp: Timestamp = inherents.get_data(&InherentIdentifier::TIMESTAMP).unwrap().unwrap();
+        assert_eq!(timestamp, stored_timestamp);
     }
-    
-    pub trait Decode: Sized {
-        fn decode(input: &mut &[u8]) -> Result<Self, &'static str>;
+
+    #[test]
+    fn timestamp_validation_works() {
+        let provider = TimestampInherentDataProvider::new();
+        let mut inherents = InherentData::new();
+        
+        // Valid timestamp
+        provider.provide_inherent_data(&mut inherents).unwrap();
+        assert!(provider.check_inherent(&inherents).is_ok());
+        
+        // Invalid timestamp (too far in future)
+        let future_timestamp = Timestamp(Timestamp::now().as_millis() + 120_000);
+        let future_provider = TimestampInherentDataProvider::from_timestamp(future_timestamp);
+        let mut future_inherents = InherentData::new();
+        future_provider.provide_inherent_data(&mut future_inherents).unwrap();
+        assert!(future_provider.check_inherent(&future_inherents).is_err());
     }
-    
-    impl Encode for u64 {
-        fn encode(&self) -> Vec<u8> {
-            self.to_le_bytes().to_vec()
-        }
+
+    #[test]
+    fn block_construction_works() {
+        let builder = BlockBuilder::new();
+        let transactions = vec![
+            Transaction { id: 1, data: vec![1, 2, 3] },
+            Transaction { id: 2, data: vec![4, 5, 6] },
+        ];
+        
+        let block = builder.build_block(1, [0u8; 32], transactions).unwrap();
+        
+        assert_eq!(block.header.number, 1);
+        assert!(block.inherents.has_data(&InherentIdentifier::TIMESTAMP));
+        assert_eq!(block.transactions.len(), 2);
     }
-    
-    impl Decode for u64 {
-        fn decode(input: &mut &[u8]) -> Result<Self, &'static str> {
-            if input.len() < 8 {
-                return Err("Not enough bytes for u64");
-            }
-            let bytes: [u8; 8] = input[..8].try_into().map_err(|_| "Invalid bytes")?;
-            *input = &input[8..];
-            Ok(u64::from_le_bytes(bytes))
-        }
+
+    #[test]
+    fn block_validation_works() {
+        let builder = BlockBuilder::new();
+        let block = builder.build_block(1, [0u8; 32], vec![]).unwrap();
+        
+        assert!(builder.validate_block(&block).is_ok());
     }
-    
-    impl Encode for u32 {
-        fn encode(&self) -> Vec<u8> {
-            self.to_le_bytes().to_vec()
-        }
-    }
-    
-    impl Decode for u32 {
-        fn decode(input: &mut &[u8]) -> Result<Self, &'static str> {
-            if input.len() < 4 {
-                return Err("Not enough bytes for u32");
-            }
-            let bytes: [u8; 4] = input[..4].try_into().map_err(|_| "Invalid bytes")?;
-            *input = &input[4..];
-            Ok(u32::from_le_bytes(bytes))
-        }
+
+    #[test]
+    fn missing_timestamp_fails() {
+        let mut inherents = InherentData::new();
+        let provider = TimestampInherentDataProvider::new();
+        
+        assert_eq!(provider.check_inherent(&inherents), Err("Missing timestamp inherent"));
     }
 }
 ```
 
-### Tests
-
-Create comprehensive tests covering:
-
-1. **Inherent Data Management:**
-   - Test inherent data creation and retrieval
-   - Test encoding/decoding of different data types
-   - Test missing data handling
-
-2. **Timestamp Inherents:**
-   - Test timestamp provider functionality
-   - Test timestamp validation (past/future limits)
-   - Test timestamp consistency
-
-3. **Block Author Inherents:**
-   - Test author provider functionality
-   - Test author validation
-
-4. **Block Construction:**
-   - Test block building with inherents
-   - Test block validation
-   - Test header-inherent consistency
-
-5. **Error Handling:**
-   - Test missing inherent data
-   - Test invalid inherent data
-   - Test validation failures
-
 ### Expected Output
 
-A complete inherent data system that:
-- Manages different types of inherent data
-- Provides timestamp and author inherents
-- Validates inherent data correctness
-- Integrates with block construction
-- Demonstrates understanding of mandatory block data
-- Handles errors gracefully
+A functional inherent data system that:
+- Compiles without errors
+- Passes all unit tests
+- Demonstrates timestamp inherent data handling with serde/bincode
+- Shows block construction with inherents
+- Implements proper validation
 
 ### Theoretical Context
 
-**Inherents in Substrate:**
-- **Purpose:** Include mandatory data that must be present in every block
-- **Examples:** Timestamp, block author, validator set changes, parachain data
-- **Automatic:** Included by block producers without user transactions
-- **Validation:** Must be validated by all nodes to ensure consensus
+**Inherents in Substrate:** Inherent data is mandatory information that must be included in every block, such as timestamps, block authors, and other consensus-related data. Unlike transactions, inherents are not signed and are automatically included by block authors.
 
-**Timestamp Inherents:**
-- Provide block timestamp for time-dependent operations
-- Must be within reasonable bounds to prevent manipulation
-- Used by pallets for time-based logic (e.g., vesting, democracy)
+**Serialization in Substrate:** Substrate uses efficient binary serialization for all data structures. The `serde` and `bincode` dependencies are essential for understanding how data is encoded and decoded in the blockchain.
 
-**Block Construction:**
-- Inherents are processed before user transactions
-- Block producers must include all required inherents
-- Validation ensures inherent data integrity across the network
+**Key Benefits:**
+- Ensures critical data is always present
+- Prevents spam through automatic inclusion
+- Enables consensus mechanisms
+- Provides block metadata
 
-This system ensures that essential blockchain metadata is consistently and automatically included in every block.
+This simplified version focuses on the core concept of inherents using timestamps as the primary example, while maintaining the essential external dependencies for proper serialization. 

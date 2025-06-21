@@ -273,6 +273,10 @@ Create comprehensive tests covering:
    - Test counter retrieval
    - Test getting all counters
 
+**⚠️ IMPORTANT: The pallet example code provided above must be modified to properly implement the RPC system. The current example is only a conceptual demonstration and does not properly implement the integration between pallet, runtime API and RPC.**
+
+**🔧 NECESSARY MODIFICATION: You must modify all pallet methods to receive a `WeightMeter` as a mutable reference (`&mut WeightMeter`) and call `meter.consume(weight)` before executing each operation. This ensures that weight is properly tracked and limits are respected during RPC calls.**
+
 2. **Runtime API:**
    - Test runtime API bridge functionality
    - Verify correct data flow from pallet to API

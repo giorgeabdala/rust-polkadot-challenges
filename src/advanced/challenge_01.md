@@ -9,7 +9,7 @@
 - ✅ Advanced collections and generics
 - ✅ Async programming and error handling  
 - ✅ SCALE codec and macros
-- ✅ Testing and documentation
+- ✅ Testing 
 
 **Now we transition to Substrate-specific concepts.** This Advanced level focuses on:
 - 🎯 **Blockchain-specific patterns** (pallets, storage, consensus)
@@ -147,7 +147,7 @@ impl WeightInfo for DefaultWeightInfo {
 ```
 
 #### **Main Pallet:**
-        ```rust
+```rust
 pub struct Pallet<T: Config> {
     storage: Storage,
     events: Vec<T::Event>,

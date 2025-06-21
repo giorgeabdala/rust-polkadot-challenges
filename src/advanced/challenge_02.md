@@ -17,7 +17,7 @@ You will implement a weight calculation system for a simple pallet that simulate
 ### Detailed Structures to Implement:
 
 #### **Weight Types:**
-    ```rust
+```rust
 /// Represents computational weight of an operation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Weight {
@@ -39,17 +39,17 @@ impl Weight {
 ```
 
 #### **WeightInfo Trait:**
-    ```rust
+```rust
 pub trait WeightInfo {
     fn create_item() -> Weight;
     fn update_item() -> Weight;
     fn delete_item() -> Weight;
     fn batch_operation(n: u32) -> Weight;
-    }
-    ```
+}
+```
 
 #### **Benchmark Results (Simulated):**
-    ```rust
+```rust
 /// Simulated benchmark results for different operations
 pub struct BenchmarkWeights;
 
@@ -72,11 +72,11 @@ impl WeightInfo for BenchmarkWeights {
             256_u64.saturating_add(128_u64.saturating_mul(n as u64))
         )
     }
-    }
-    ```
+}
+```
 
 #### **Pallet Configuration:**
-    ```rust
+```rust
 pub trait Config {
     type WeightInfo: WeightInfo;
 }
@@ -85,11 +85,11 @@ pub struct Pallet<T: Config> {
     items: std::collections::HashMap<u32, String>,
     next_id: u32,
     _phantom: std::marker::PhantomData<T>,
-    }
-    ```
+}
+```
 
 #### **Dispatchable Functions with Weights:**
-    ```rust
+```rust
 impl<T: Config> Pallet<T> {
     /// Create a new item
     /// Weight: Based on WeightInfo::create_item()
@@ -238,6 +238,10 @@ Create comprehensive tests covering:
 4. **Pallet Operations:**
    - Test all CRUD operations with weight tracking
    - Verify batch operations consume appropriate weight
+
+**⚠️ IMPORTANT: The pallet example code provided above must be modified to properly implement the weight management system. The current example is only a conceptual demonstration and does not properly implement weight tracking during operations.**
+
+**🔧 NECESSARY MODIFICATION: You must modify all pallet methods to receive a `WeightMeter` as a mutable reference (`&mut WeightMeter`) and call `meter.consume(weight)` before executing each operation. This ensures that weight is properly tracked and limits are respected.**
 
 ### Expected Output
 
