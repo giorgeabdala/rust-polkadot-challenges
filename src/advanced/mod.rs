@@ -2,3 +2,4 @@
 
 pub mod challenge_02;
 mod challenge_01;
+mod challenge_05;
