@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use futures::future::err;
 use tokio::sync::Mutex;
-use tokio::time::{sleep, timeout, Instant};
+use tokio::time::{timeout, Instant};
 
 #[derive(Debug, Clone)]
 struct Block {
@@ -132,7 +131,7 @@ impl BlockCache {
 }
 
 mod tests {
-    use std::time::Instant;
+    use tokio::time::Instant;
     use crate::medium::challenge_05::{Block, BlockchainClient, NetworkError};
 
     async fn fetch_blocks_sequencial(client: &BlockchainClient, numbers: &[u64])
