@@ -229,8 +229,8 @@ impl PermissionPallet {
 
 pub struct OriginBuilder;
 impl OriginBuilder {
-    pub fn signed(accound_id: u32) -> Origin {
-        Origin::Signed(accound_id)
+    pub fn signed(account_id: u32) -> Origin {
+        Origin::Signed(account_id)
     }
     pub fn root() -> Origin {
         Origin::Root
@@ -243,16 +243,128 @@ impl OriginBuilder {
     }
 }
 
+
+
+
+
+#[cfg(test)]
 mod tests {
-    use crate::advanced::challenge_05::PermissionPallet;
+    use super::{CustomOrigin, Origin, OriginBuilder, PermissionPallet, RoleManager};
+    const ADMIN_ACCOUNT: u32 = 1;
+    const MEMBER_ACCOUNT: u32 = 2;
+    const NORMAL_ACCOUNT: u32 = 3;
 
     #[test]
-    fn pallet_increment_counter() {
-        let pallet = PermissionPallet::new(0);
-        //let result = pallet.increment_counter()
+    fn origin_helpers_work_correctly() {
+        assert_eq!(OriginBuilder::signed(10).as_signed(), Some(10));
+        assert!(OriginBuilder::root().is_root());
+        assert_eq!(OriginBuilder::admin().as_custom(), Some(&CustomOrigin::Admin));
+        assert_eq!(OriginBuilder::member().as_custom(), Some(&CustomOrigin::Member));
+        assert!(CustomOrigin::Admin.is_admin());
+        assert!(!CustomOrigin::Member.is_admin());
+        assert!(CustomOrigin::Admin.is_member_or_above());
+        assert!(CustomOrigin::Member.is_member_or_above());
     }
-    
+
+    #[test]
+    fn role_manager_assigns_and_removes_roles() {
+        let mut role_manager = RoleManager::new(ADMIN_ACCOUNT);
+        assert_eq!(role_manager.get_role(ADMIN_ACCOUNT), Some(&CustomOrigin::Admin));
+
+        role_manager.assign_role(MEMBER_ACCOUNT, CustomOrigin::Member).unwrap();
+        assert_eq!(role_manager.get_role(MEMBER_ACCOUNT), Some(&CustomOrigin::Member));
+
+        role_manager.remove_role(MEMBER_ACCOUNT).unwrap();
+        assert_eq!(role_manager.get_role(MEMBER_ACCOUNT), None);
+    }
+
+    #[test]
+    fn role_manager_protects_system_admin() {
+        let mut role_manager = RoleManager::new(ADMIN_ACCOUNT);
+        let result = role_manager.remove_role(ADMIN_ACCOUNT);
+        assert_eq!(result, Err("Cannot remove admin role from system administrator"));
+        assert_eq!(role_manager.get_role(ADMIN_ACCOUNT), Some(&CustomOrigin::Admin));
+    }
+
+    #[test]
+    fn increment_counter_permission_logic_is_correct() {
+        let mut pallet = PermissionPallet::new(ADMIN_ACCOUNT);
+        pallet.assign_role(OriginBuilder::root(), MEMBER_ACCOUNT, CustomOrigin::Member).unwrap();
+        
+        assert!(pallet.increment_counter(OriginBuilder::root()).is_ok());
+        assert!(pallet.increment_counter(OriginBuilder::signed(ADMIN_ACCOUNT)).is_ok());
+
+        assert!(pallet.increment_counter(OriginBuilder::signed(MEMBER_ACCOUNT)).is_ok());
+        assert_eq!(pallet.get_counter(), 3);
+        
+        let result = pallet.increment_counter(OriginBuilder::signed(NORMAL_ACCOUNT));
+        assert_eq!(result, Err("Member privileges required"));
+        assert_eq!(pallet.get_counter(), 3); // O contador não deve mudar
+    }
+
+    #[test]
+    fn reset_counter_requires_admin_privileges() {
+        let mut pallet = PermissionPallet::new(ADMIN_ACCOUNT);
+        pallet.increment_counter(OriginBuilder::root()).unwrap();
+        assert_eq!(pallet.get_counter(), 1);
+        
+        let result = pallet.reset_counter(OriginBuilder::signed(MEMBER_ACCOUNT));
+        assert_eq!(result, Err("Admin privileges required"));
+        assert_eq!(pallet.get_counter(), 1);
+        
+        assert!(pallet.reset_counter(OriginBuilder::signed(ADMIN_ACCOUNT)).is_ok());
+        assert_eq!(pallet.get_counter(), 0);
+    }
+
+    #[test]
+    fn toggle_admin_setting_requires_admin_privileges() {
+        let mut pallet = PermissionPallet::new(ADMIN_ACCOUNT);
+        assert!(!pallet.get_admin_setting());
+        
+        pallet.toggle_admin_setting(OriginBuilder::root()).unwrap();
+        assert!(pallet.get_admin_setting());
+        
+        pallet.toggle_admin_setting(OriginBuilder::signed(ADMIN_ACCOUNT)).unwrap();
+        assert!(!pallet.get_admin_setting());
+        
+        let result = pallet.toggle_admin_setting(OriginBuilder::signed(MEMBER_ACCOUNT));
+        assert_eq!(result, Err("Admin privileges required"));
+    }
+
+    #[test]
+    fn assign_and_remove_role_permission_logic_is_correct() {
+        let mut pallet = PermissionPallet::new(ADMIN_ACCOUNT);
+        
+        assert!(pallet.assign_role(OriginBuilder::signed(ADMIN_ACCOUNT), NORMAL_ACCOUNT, CustomOrigin::Member).is_ok());
+        assert_eq!(pallet.get_user_role(NORMAL_ACCOUNT), Some(&CustomOrigin::Member));
+        
+        let result = pallet.assign_role(OriginBuilder::signed(MEMBER_ACCOUNT), 4, CustomOrigin::Member);
+        assert_eq!(result, Err("Admin privileges required"));
+        
+        assert!(pallet.remove_role(OriginBuilder::signed(ADMIN_ACCOUNT), NORMAL_ACCOUNT).is_ok());
+        assert_eq!(pallet.get_user_role(NORMAL_ACCOUNT), None);
+    }
+
+    #[test]
+    fn cannot_remove_role_from_system_admin_via_pallet() {
+        let mut pallet = PermissionPallet::new(ADMIN_ACCOUNT);
+        let result = pallet.remove_role(OriginBuilder::root(), ADMIN_ACCOUNT);
+        assert_eq!(result, Err("Cannot remove admin role from system administrator"));
+    }
+
+    #[test]
+    fn query_functions_list_correct_accounts() {
+        let mut pallet = PermissionPallet::new(ADMIN_ACCOUNT);
+        let other_admin = 4;
+        pallet.assign_role(OriginBuilder::root(), MEMBER_ACCOUNT, CustomOrigin::Member).unwrap();
+        pallet.assign_role(OriginBuilder::root(), other_admin, CustomOrigin::Admin).unwrap();
+
+        let mut admins = pallet.list_admins();
+        admins.sort(); 
+        assert_eq!(admins, vec![ADMIN_ACCOUNT, other_admin]);
+
+        let members = pallet.list_members();
+        assert_eq!(members, vec![MEMBER_ACCOUNT]);
+    }
 }
-
-
 
