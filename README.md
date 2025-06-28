@@ -48,7 +48,7 @@ Advanced Polkadot SDK concepts (reorganized for optimal learning flow):
 ### 1. Clone the repository
 ```bash
 git clone <repository-url>
-cd RustPolkadotChallenges
+cd rust-polkadot-challenges
 ```
 
 ### 2. Start with the appropriate level

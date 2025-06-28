@@ -1,5 +1,5 @@
 [package]
-name = "exercicios"
+name = "rust-polkadot-challenges"
 version = "0.1.0"
 edition = "2021"
 
