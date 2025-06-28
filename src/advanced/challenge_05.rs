@@ -249,7 +249,7 @@ impl OriginBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::{CustomOrigin, Origin, OriginBuilder, PermissionPallet, RoleManager};
+    use super::{CustomOrigin, OriginBuilder, PermissionPallet, RoleManager};
     const ADMIN_ACCOUNT: u32 = 1;
     const MEMBER_ACCOUNT: u32 = 2;
     const NORMAL_ACCOUNT: u32 = 3;
@@ -367,4 +367,3 @@ mod tests {
         assert_eq!(members, vec![MEMBER_ACCOUNT]);
     }
 }
-

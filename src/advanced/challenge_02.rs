@@ -172,6 +172,7 @@ impl WeightMeter {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::advanced::challenge_02::{BenchmarkWeights, Config, FeeCalculator, Pallet, Weight, WeightInfo, WeightMeter};
 
@@ -314,10 +315,3 @@ mod tests {
     }
     
 }
-
-
-
-
-
-
-

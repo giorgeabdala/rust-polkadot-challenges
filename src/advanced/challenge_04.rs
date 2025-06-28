@@ -203,9 +203,10 @@ impl RpcResponse {
 }
 
 
+#[cfg(test)]
 mod tests {
-    use crate::advanced::challenge_04::{CustomRpc, CustomRpcImpl, MockRuntime, ResponseData, RpcError, RpcParams, RpcResponse, RpcServer};
-    use crate::advanced::challenge_04::RpcError::InvalidParams;
+    use crate::advanced::challenge_04::{CustomRpcImpl, MockRuntime, RpcServer};
+    use super::*;
 
     fn create_rpc() -> CustomRpcImpl<MockRuntime> {
         let runtime = MockRuntime::new();
@@ -276,7 +277,7 @@ mod tests {
         let rpc_response = server.handle_request("non_existent", rpc_params.clone());
         assert_eq!(rpc_response.success, false);
         assert!(rpc_response.data.is_none());
-        assert_eq!(rpc_response.error, Some(InvalidParams("Unknown method".to_string())));
+        assert_eq!(rpc_response.error, Some(RpcError::InvalidParams("Unknown method".to_string())));
     }
 
     #[test]
@@ -352,4 +353,3 @@ mod tests {
         );
     }
 }
-

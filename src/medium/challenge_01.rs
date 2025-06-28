@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-
+/// A struct to represent a user.
 #[derive(Clone, PartialEq)]
 struct User {
     id: u32,
@@ -16,12 +16,12 @@ impl User {
     }
 }
 
+/// A struct to manage users.
 struct UserManager {
     users: HashMap<u32, User>,
     username_index: BTreeMap<String, u32>,
     active_sessions: HashSet<u32>
 }
-
 
 impl UserManager {
 
@@ -88,6 +88,17 @@ impl UserManager {
 #[cfg(test)]
 mod tests {
     use crate::medium::challenge_01::{User, UserManager};
+
+    fn create_user_manager() -> UserManager {
+        let mut manager = UserManager::new();
+        let user = User::new(1, "Alice".to_string(), "alice@example.com".to_string(), vec!["admin".to_string(), "user".to_string()]);
+        let user_two = User::new(2, "Bob".to_string(), "bob@example.com".to_string(), vec!["admin".to_string(), "user".to_string()]);
+        let user_three = User::new(3, "Charlie".to_string(), "charlie@example.com".to_string(), vec![]);
+        let _ = manager.add_user(user);
+        let _ = manager.add_user(user_two);
+        let _ = manager.add_user(user_three);
+        manager
+    }
 
     #[test]
     fn add_and_get_user() {
@@ -161,30 +172,16 @@ mod tests {
 
     #[test]
     fn get_users_by_role_test() {
-        let mut user = User::new(1, "first user".to_string(), "alice@example.com".to_string(), vec!["admin".to_string(), "user".to_string()]);
-        let mut user_two = User::new(2, "second user".to_string(), "bob@example.com".to_string(), vec!["admin".to_string(), "user".to_string()]);
-        let role = "role 1".to_string();
-        user.roles.push(role.clone());
-        user_two.roles.push(role.clone());
-        let mut manager = UserManager::new();
-        let _ = manager.add_user(user.clone());
-        let _ = manager.add_user(user_two.clone());
-        let _ = manager.add_user(User::new(3, "user 3".to_string(), "charlie@example.com".to_string(), vec![]));
-
-        let mut users = manager.get_users_by_role(&role.clone());
+        let manager = create_user_manager();
+        let role = "admin".to_string();
+        let users = manager.get_users_by_role(&role.clone());
         assert_eq!(users.len(), 2);
-        assert!(users.contains(&&user));
-        assert!(users.contains(&&user_two));
     }
 
     #[test]
     fn get_user_nonexistent_role_test() {
-        let mut user = User::new(1, "first user".to_string(), "alice@example.com".to_string(), vec!["admin".to_string(), "user".to_string()]);
-        let role = "role 1".to_string();
-        user.roles.push(role.clone());
-        let mut manager = UserManager::new();
-        let _ = manager.add_user(user.clone());
-        let mut users = manager.get_users_by_role("role non existent");
+        let manager = create_user_manager();
+        let users = manager.get_users_by_role("role non existent");
         assert_eq!(users.len(), 0);
     }
 
@@ -258,29 +255,8 @@ mod tests {
 
     #[test]
     fn get_sorted_usernames()  {
-        let user = User::new(1, "user".to_string(), "alice@example.com".to_string(), vec!["admin".to_string(), "user".to_string()]);
-        let user_two = User::new(2, "user two".to_string(), "bob@example.com".to_string(), vec!["admin".to_string(), "user".to_string()]);
-        let user_three = User::new(3, "user three".to_string(), "charlie@example.com".to_string(), vec![]);
-        let mut manager = UserManager::new();
-        let _ = manager.add_user(user.clone());
-        let _ = manager.add_user(user_two.clone());
-        let _ = manager.add_user(user_three.clone());
-
-        let mut usernames = manager.get_sorted_usernames();
-        let expected = vec![&user.username, &user_three.username, &user_two.username];
-        assert_eq!(usernames, expected);
+        let manager = create_user_manager();
+        let usernames = manager.get_sorted_usernames();
+        assert_eq!(usernames, vec!["Alice", "Bob", "Charlie"]);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
 }

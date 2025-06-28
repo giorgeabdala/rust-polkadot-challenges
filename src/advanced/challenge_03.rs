@@ -1,26 +1,20 @@
-
-
-pub trait Config {
-
-}
+pub trait Config {}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum StorageVersion {
     V1SimpleU32,
-    V2U32WithFlag
+    V2U32WithFlag,
 }
 
 pub struct PalletStorageSim<T: Config> {
     pub current_version: StorageVersion,
 
     storage_v1_value: Option<u32>,
-    storage_v2_value: Option<(u32, bool)> ,
-    _phantom: core::marker::PhantomData<T>
+    storage_v2_value: Option<(u32, bool)>,
+    _phantom: core::marker::PhantomData<T>,
 }
 
-
 impl<T: Config> PalletStorageSim<T> {
-
     pub fn new() -> Self {
         Self {
             current_version: StorageVersion::V1SimpleU32,
@@ -38,30 +32,28 @@ impl<T: Config> PalletStorageSim<T> {
 
     pub fn get_current_v2_value(&self) -> Option<(u32, bool)> {
         match self.current_version {
-            StorageVersion::V2U32WithFlag => { self.storage_v2_value }
-            _ => None
+            StorageVersion::V2U32WithFlag => self.storage_v2_value,
+            _ => None,
         }
     }
 
     pub fn run_migration_if_needed(&mut self) -> u64 {
-        let mut weight = 0;
-       match self.current_version {
-           StorageVersion::V1SimpleU32 => {
-               if let Some(old_val) = self.storage_v1_value.take() {
-                   self.storage_v2_value = Some((old_val, true));
-                   weight = 2;
-               } else { 
-                   self.storage_v2_value = None;
-                   weight = 1;
-               }
-               self.current_version = StorageVersion::V2U32WithFlag;
-           }
-           StorageVersion::V2U32WithFlag => {
-               weight = 0;
-           }
-         
-               
-           }
+        let weight;
+        match self.current_version {
+            StorageVersion::V1SimpleU32 => {
+                if let Some(old_val) = self.storage_v1_value.take() {
+                    self.storage_v2_value = Some((old_val, true));
+                    weight = 2;
+                } else {
+                    self.storage_v2_value = None;
+                    weight = 1;
+                }
+                self.current_version = StorageVersion::V2U32WithFlag;
+            }
+            StorageVersion::V2U32WithFlag => {
+                weight = 0;
+            }
+        }
         weight
     }
 }
@@ -70,21 +62,19 @@ pub trait OnRuntimeUpgrade {
     fn on_runtime_upgrade(&mut self);
 }
 
-impl<T: Config> OnRuntimeUpgrade for PalletStorageSim<T>{
+impl<T: Config> OnRuntimeUpgrade for PalletStorageSim<T> {
     fn on_runtime_upgrade(&mut self) {
         self.run_migration_if_needed();
     }
 }
 
-
-
-mod tests{
-    use crate::advanced::challenge_03::{Config, PalletStorageSim, StorageVersion};
+#[cfg(test)]
+mod tests {
+    use super::*;
 
     pub struct TestConfig {}
 
     impl Config for TestConfig {}
-
 
     #[test]
     fn new_test() {
@@ -145,11 +135,4 @@ mod tests{
         assert_eq!(pallet.storage_v1_value, None);
         assert_eq!(pallet.storage_v2_value, None);
     }
-
-
-
-
-
-
 }
-

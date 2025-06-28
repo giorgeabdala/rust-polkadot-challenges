@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use tokio::time::{timeout, Instant};
+use tokio::time::timeout;
 
 #[derive(Debug, Clone)]
 struct Block {
@@ -131,8 +131,7 @@ impl BlockCache {
 }
 
 mod tests {
-    use tokio::time::Instant;
-    use crate::medium::challenge_05::{Block, BlockchainClient, NetworkError};
+    use super::*;
 
     async fn fetch_blocks_sequencial(client: &BlockchainClient, numbers: &[u64])
         -> Vec<Result<Block, NetworkError>> {
@@ -148,11 +147,11 @@ mod tests {
        let client = BlockchainClient::new("mock://test");
         let block_numbers = vec![1,2,3,4,5];
 
-        let start_sequential = Instant::now();
+        let start_sequential = tokio::time::Instant::now();
         let sequential_results = fetch_blocks_sequencial(&client, &block_numbers).await;
         let sequential_time = start_sequential.elapsed();
 
-        let start = Instant::now();
+        let start = tokio::time::Instant::now();
         let concurrent_results = client.fetch_blocks_concurrent(block_numbers.clone()).await;
         let concurrent_time = start.elapsed();
 
@@ -171,14 +170,14 @@ mod tests {
     #[tokio::test]
     async fn test_cache_works() {
         let client = BlockchainClient::new("mock://test");
-        let mut cache = BlockCache::new(client);
+        let cache = BlockCache::new(client);
         let block_number = 42;
 
-        let start_first = Instant::now();
+        let start_first = tokio::time::Instant::now();
         let first_result = cache.get_block(block_number).await.expect("Block not found");
         let first_duration = start_first.elapsed();
 
-        let start_second = Instant::now();
+        let start_second = tokio::time::Instant::now();
         let second_result = cache.get_block(block_number).await.expect("Block not found");
         let second_duration = start_second.elapsed();
 
@@ -192,7 +191,7 @@ mod tests {
         let mut client = BlockchainClient::new("mock://test");
         client.timeout_ms = 50; // Timeout menor que o delay de 100ms
 
-        let start_fast = Instant::now();
+        let start_fast = tokio::time::Instant::now();
         let fast_result = client.fetch_with_timeout(1).await;
         let fast_duration = start_fast.elapsed();
 

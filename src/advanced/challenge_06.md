@@ -225,9 +225,9 @@ impl TransactionValidator {
     /// Clean up old interval data
     pub fn cleanup_old_intervals(&mut self) {
         let current_block = self.block_simulator.current_block();
-        let cutoff = current_block.saturating_sub(self.interval_blocks * 2);
-        
-        self.interval_counts.retain(|&interval_start, _| interval_start > cutoff);
+        let current_interval_start = self.get_interval_start(current_block);
+        let cutoff = current_interval_start.saturating_sub(self.interval_blocks);
+        self.interval_counts.retain(|&interval_start, _| interval_start >= cutoff);
     }
     
     /// Get current interval statistics
