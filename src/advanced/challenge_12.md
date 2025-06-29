@@ -1,7 +1,7 @@
 ## Challenge 12: Simple Runtime Integration
 
 **Difficulty Level:** Advanced
-**Estimated Time:** 1.5 hours
+**Estimated Time:** 1 hour
 
 ### Objective Description
 
@@ -13,7 +13,6 @@ You will implement a simplified runtime that integrates two basic pallets (Syste
 2. **Pallet Integration**: Integration of multiple pallets
 3. **Cross-Pallet Communication**: How pallets interact with each other
 4. **Event System**: Unified event handling across pallets
-5. **Error Handling**: Runtime-level error management
 
 ### Structures to Implement
 
@@ -41,7 +40,6 @@ pub mod system {
     #[derive(Clone, Debug, PartialEq)]
     pub enum Event<T: Config> {
         NewAccount { account: T::AccountId },
-        BlockFinalized { number: T::BlockNumber },
         ExtrinsicSuccess { account: T::AccountId },
     }
 
@@ -75,9 +73,8 @@ pub mod system {
             self.account_nonces.get(account).copied().unwrap_or_default()
         }
 
-        pub fn finalize_block(&mut self, number: T::BlockNumber) {
+        pub fn set_block_number(&mut self, number: T::BlockNumber) {
             self.current_block_number = number;
-            self.events.push(Event::BlockFinalized { number });
         }
 
         pub fn block_number(&self) -> T::BlockNumber {
@@ -118,22 +115,16 @@ pub mod balances {
             account: T::AccountId, 
             balance: T::Balance 
         },
-        Endowed {
-            account: T::AccountId,
-            balance: T::Balance,
-        },
     }
 
     #[derive(Clone, Debug, PartialEq)]
     pub enum Error {
         InsufficientBalance,
-        AccountNotFound,
         ZeroAmount,
     }
 
     pub struct Pallet<T: Config> {
         balances: HashMap<T::AccountId, T::Balance>,
-        total_issuance: T::Balance,
         events: Vec<Event<T>>,
         _phantom: core::marker::PhantomData<T>,
     }
@@ -142,31 +133,13 @@ pub mod balances {
         pub fn new() -> Self {
             Self {
                 balances: HashMap::new(),
-                total_issuance: T::Balance::default(),
                 events: Vec::new(),
                 _phantom: core::marker::PhantomData,
             }
         }
 
         pub fn set_balance(&mut self, account: T::AccountId, balance: T::Balance) {
-            let old_balance = self.balances.get(&account).copied().unwrap_or_default();
-            
-            if old_balance == T::Balance::default() && balance > T::Balance::default() {
-                self.events.push(Event::Endowed { 
-                    account: account.clone(), 
-                    balance 
-                });
-            }
-            
             self.balances.insert(account.clone(), balance);
-            
-            // Adjust total issuance
-            if balance > old_balance {
-                self.total_issuance = self.total_issuance + (balance - old_balance);
-            } else if old_balance > balance {
-                self.total_issuance = self.total_issuance - (old_balance - balance);
-            }
-
             self.events.push(Event::BalanceSet { account, balance });
         }
 
@@ -198,10 +171,6 @@ pub mod balances {
 
         pub fn balance(&self, account: &T::AccountId) -> T::Balance {
             self.balances.get(account).copied().unwrap_or_default()
-        }
-
-        pub fn total_issuance(&self) -> T::Balance {
-            self.total_issuance
         }
 
         pub fn take_events(&mut self) -> Vec<Event<T>> {
@@ -271,36 +240,6 @@ impl<T: RuntimeConfig> Runtime<T> {
         self.collect_events();
     }
 
-    // Execute a transfer extrinsic
-    pub fn execute_transfer(
-        &mut self,
-        origin: T::AccountId,
-        to: T::AccountId,
-        amount: T::Balance,
-    ) -> Result<(), balances::Error> {
-        // Increment nonce (simulating extrinsic execution)
-        self.system.inc_account_nonce(&origin);
-        
-        // Execute transfer
-        let result = self.balances.transfer(origin.clone(), to, amount);
-        
-        // Record success if transfer succeeded
-        if result.is_ok() {
-            self.system.record_extrinsic_success(origin);
-        }
-        
-        // Collect events from all pallets
-        self.collect_events();
-        
-        result
-    }
-
-    // Finalize a block
-    pub fn finalize_block(&mut self, block_number: T::BlockNumber) {
-        self.system.finalize_block(block_number);
-        self.collect_events();
-    }
-
     // Collect events from all pallets
     fn collect_events(&mut self) {
         // Collect system events
@@ -331,9 +270,41 @@ impl<T: RuntimeConfig> Runtime<T> {
     pub fn current_block(&self) -> T::BlockNumber {
         self.system.block_number()
     }
+}
+```
 
-    pub fn total_issuance(&self) -> T::Balance {
-        self.balances.total_issuance()
+### Methods for You to Implement
+
+#### **1. Transfer Execution (`execute_transfer`):**
+```rust
+impl<T: RuntimeConfig> Runtime<T> {
+    // TODO: Implement this method
+    pub fn execute_transfer(
+        &mut self,
+        origin: T::AccountId,
+        to: T::AccountId,
+        amount: T::Balance,
+    ) -> Result<(), balances::Error> {
+        // IMPLEMENT:
+        // 1. Increment account nonce (simulating extrinsic execution)
+        // 2. Execute the transfer
+        // 3. If success, record successful extrinsic in system
+        // 4. Collect events from all pallets
+        // 5. Return result
+        todo!()
+    }
+}
+```
+
+#### **2. Block Finalization (`finalize_block`):**
+```rust
+impl<T: RuntimeConfig> Runtime<T> {
+    // TODO: Implement this method
+    pub fn finalize_block(&mut self, block_number: T::BlockNumber) {
+        // IMPLEMENT:
+        // 1. Set block number in system pallet
+        // 2. Collect events
+        todo!()
     }
 }
 ```
@@ -359,9 +330,9 @@ impl RuntimeConfig for TestRuntimeConfig {}
 type TestRuntime = Runtime<TestRuntimeConfig>;
 ```
 
-### Tests
+### Tests to Implement
 
-Create comprehensive tests covering:
+Create tests that cover:
 
 #### **Test Scenarios:**
 
@@ -380,20 +351,9 @@ Create comprehensive tests covering:
    - Test failed transfer handling
    - Test nonce incrementation
 
-4. **Block Lifecycle:**
-   - Test block finalization
-   - Test event collection across blocks
-   - Test state persistence
-
-5. **Event System:**
+4. **Event System:**
    - Test unified event handling
-   - Test event ordering
    - Test event data integrity
-
-6. **Integration Tests:**
-   - Test complete runtime workflow
-   - Test multiple accounts and transfers
-   - Test runtime state consistency
 
 ### Example Usage
 
