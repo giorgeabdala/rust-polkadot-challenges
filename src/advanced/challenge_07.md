@@ -1,61 +1,31 @@
 ## Challenge 7: Inherent Data Provider
 
 **Difficulty Level:** Advanced
-**Estimated Time:** 1.5 hours
+**Estimated Time:** 1 hour
 
 ### Objective Description
 
-You will implement an inherent data provider system that simulates how external data is included in blocks during the block construction process. This challenge focuses on understanding how Substrate handles inherent transactions and how external data sources are integrated into the blockchain.
+You will implement a simplified inherent data provider system that demonstrates how external data is included in blocks during block construction. This challenge focuses on understanding Substrate's inherent transaction patterns and how external data sources integrate into blockchain operations.
 
-**Main Concepts Covered:**
-1. **Inherent Data:** External data that must be included in blocks
-2. **Provider Pattern:** Systems that supply data for block construction
-3. **Block Construction:** How inherents are integrated during block building
-4. **Data Validation:** Ensuring inherent data meets requirements
-5. **Timestamp Inherents:** Time-based data that's essential for blockchain operation
+### Main Concepts Covered
 
-### Project Setup
+1. **Inherent Data**: External data that must be included in blocks
+2. **Provider Pattern**: Systems that supply data for block construction
+3. **Block Construction**: How inherents are integrated during block building
+4. **Data Validation**: Ensuring inherent data meets requirements
+5. **Timestamp Inherents**: Time-based data essential for blockchain operation
 
-Before starting, you will need to configure the necessary dependencies:
-
-#### **Cargo.toml:**
-```toml
-[package]
-name = "inherents-challenge"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-```
-
-#### **How to configure (choose one option):**
-
-**Option 1 - Using cargo add (recommended):**
-```bash
-cargo add serde --features derive
-cargo add serde_json
-```
-
-**Option 2 - Editing Cargo.toml manually:**
-```bash
-# Edit the Cargo.toml file above and then run:
-cargo build
-```
-
-### Detailed Structures to Implement:
+### Structures to Implement
 
 #### **Inherent Data Container:**
 ```rust
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 
 /// Container for all inherent data in a block
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct InherentData {
-    /// Map of inherent identifier to JSON-encoded data
-    data: HashMap<String, String>,
+    /// Map of inherent identifier to data
+    data: HashMap<String, Vec<u8>>,
 }
 
 impl InherentData {
@@ -67,23 +37,13 @@ impl InherentData {
     }
     
     /// Put data into the container
-    pub fn put_data<T: Serialize>(&mut self, identifier: &str, data: &T) -> Result<(), &'static str> {
-        let json_data = serde_json::to_string(data)
-            .map_err(|_| "Failed to serialize data")?;
-        self.data.insert(identifier.to_string(), json_data);
-        Ok(())
+    pub fn put_data(&mut self, identifier: &str, data: Vec<u8>) {
+        self.data.insert(identifier.to_string(), data);
     }
     
     /// Get data from the container
-    pub fn get_data<T: for<'de> Deserialize<'de>>(&self, identifier: &str) -> Result<Option<T>, &'static str> {
-        match self.data.get(identifier) {
-            Some(json_data) => {
-                let data = serde_json::from_str(json_data)
-                    .map_err(|_| "Failed to deserialize data")?;
-                Ok(Some(data))
-            },
-            None => Ok(None),
-        }
+    pub fn get_data(&self, identifier: &str) -> Option<&Vec<u8>> {
+        self.data.get(identifier)
     }
     
     /// Check if identifier exists
@@ -94,16 +54,6 @@ impl InherentData {
     /// Get all identifiers
     pub fn identifiers(&self) -> Vec<String> {
         self.data.keys().cloned().collect()
-    }
-    
-    /// Get total data size
-    pub fn total_size(&self) -> usize {
-        self.data.values().map(|v| v.len()).sum()
-    }
-    
-    /// Get raw JSON data for debugging
-    pub fn get_raw_data(&self, identifier: &str) -> Option<&String> {
-        self.data.get(identifier)
     }
 }
 ```
@@ -133,10 +83,9 @@ pub trait InherentDataProvider {
 #### **Timestamp Provider:**
 ```rust
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Serialize, Deserialize};
 
 /// Timestamp data structure
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Timestamp {
     /// Milliseconds since Unix epoch
     pub millis: u64,
@@ -160,6 +109,22 @@ impl Timestamp {
     /// Get milliseconds
     pub fn as_millis(&self) -> u64 {
         self.millis
+    }
+    
+    /// Convert to bytes for storage
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.millis.to_le_bytes().to_vec()
+    }
+    
+    /// Create from bytes
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, &'static str> {
+        if bytes.len() != 8 {
+            return Err("Invalid timestamp bytes length");
+        }
+        let mut array = [0u8; 8];
+        array.copy_from_slice(bytes);
+        let millis = u64::from_le_bytes(array);
+        Ok(Self::from_millis(millis))
     }
 }
 
@@ -198,7 +163,7 @@ impl InherentDataProvider for TimestampProvider {
     fn provide_inherent_data(&self) -> Result<InherentData, &'static str> {
         let mut inherent_data = InherentData::new();
         let timestamp = self.get_timestamp();
-        inherent_data.put_data(Self::INHERENT_IDENTIFIER, &timestamp)?;
+        inherent_data.put_data(Self::INHERENT_IDENTIFIER, timestamp.to_bytes());
         Ok(inherent_data)
     }
     
@@ -208,7 +173,7 @@ impl InherentDataProvider for TimestampProvider {
 }
 ```
 
-#### **Block Construction Simulator:**
+#### **Block Constructor:**
 ```rust
 /// Simulates block construction with inherents
 pub struct BlockConstructor {
@@ -216,109 +181,20 @@ pub struct BlockConstructor {
     providers: Vec<Box<dyn InherentDataProvider>>,
     /// Block number
     block_number: u64,
-    /// Parent hash (simplified)
-    parent_hash: [u8; 32],
 }
 
 impl BlockConstructor {
     /// Create new block constructor
-    pub fn new(block_number: u64, parent_hash: [u8; 32]) -> Self {
+    pub fn new(block_number: u64) -> Self {
         Self {
             providers: Vec::new(),
             block_number,
-            parent_hash,
         }
     }
     
     /// Register an inherent data provider
     pub fn register_provider(&mut self, provider: Box<dyn InherentDataProvider>) {
         self.providers.push(provider);
-    }
-    
-    /// Collect all inherent data
-    pub fn collect_inherent_data(&self) -> Result<InherentData, &'static str> {
-        let mut combined_data = InherentData::new();
-        
-        for provider in &self.providers {
-            if provider.is_inherent_required() {
-                let provider_data = provider.provide_inherent_data()?;
-                
-                // Merge data from this provider
-                for identifier in provider_data.identifiers() {
-                    if combined_data.has_data(&identifier) {
-                        return Err("Duplicate inherent identifier");
-                    }
-                    
-                    // Get raw JSON data and copy it
-                    if let Some(raw_data) = provider_data.get_raw_data(&identifier) {
-                        combined_data.data.insert(identifier, raw_data.clone());
-                    }
-                }
-            }
-        }
-        
-        Ok(combined_data)
-    }
-    
-    /// Validate inherent data
-    pub fn validate_inherents(&self, inherent_data: &InherentData) -> Result<(), &'static str> {
-        // Check that all required inherents are present
-        for provider in &self.providers {
-            if provider.is_inherent_required() {
-                let identifier = Self::get_provider_identifier(provider.as_ref());
-                if !inherent_data.has_data(&identifier) {
-                    return Err(provider.error_message());
-                }
-            }
-        }
-        
-        // Validate timestamp if present
-        if inherent_data.has_data("timestamp") {
-            let timestamp: Timestamp = inherent_data.get_data("timestamp")?
-                .ok_or("Timestamp data corrupted")?;
-            
-            // Basic validation: timestamp should be reasonable
-            if timestamp.as_millis() == 0 {
-                return Err("Invalid timestamp: cannot be zero");
-            }
-            
-            // Check if timestamp is not too far in the future (basic drift check)
-            let now = Timestamp::now();
-            let max_drift = 60_000; // 60 seconds in milliseconds
-            
-            if timestamp.as_millis() > now.as_millis() + max_drift {
-                return Err("Timestamp too far in the future");
-            }
-        }
-        
-        Ok(())
-    }
-    
-    /// Get provider identifier (helper method)
-    fn get_provider_identifier(provider: &dyn InherentDataProvider) -> String {
-        // This is a simplified way to get the identifier
-        // In real implementation, this would use the const INHERENT_IDENTIFIER
-        "timestamp".to_string() // For simplicity, assuming timestamp
-    }
-    
-    /// Build block with inherents
-    pub fn build_block(&self) -> Result<Block, &'static str> {
-        let inherent_data = self.collect_inherent_data()?;
-        self.validate_inherents(&inherent_data)?;
-        
-        // Get timestamp from inherents for block header
-        let block_timestamp = if let Some(timestamp) = inherent_data.get_data::<Timestamp>("timestamp")? {
-            timestamp.as_millis()
-        } else {
-            Timestamp::now().as_millis()
-        };
-        
-        Ok(Block {
-            block_number: self.block_number,
-            parent_hash: self.parent_hash,
-            inherent_data,
-            timestamp: block_timestamp,
-        })
     }
     
     /// Get block number
@@ -336,12 +212,10 @@ impl BlockConstructor {
 #### **Block Structure:**
 ```rust
 /// Simplified block structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Block {
     /// Block number
     pub block_number: u64,
-    /// Parent block hash
-    pub parent_hash: [u8; 32],
     /// Inherent data included in block
     pub inherent_data: InherentData,
     /// Block timestamp
@@ -351,164 +225,205 @@ pub struct Block {
 impl Block {
     /// Get timestamp from inherent data
     pub fn get_inherent_timestamp(&self) -> Result<Option<Timestamp>, &'static str> {
-        self.inherent_data.get_data("timestamp")
+        if let Some(timestamp_bytes) = self.inherent_data.get_data("timestamp") {
+            let timestamp = Timestamp::from_bytes(timestamp_bytes)?;
+            Ok(Some(timestamp))
+        } else {
+            Ok(None)
+        }
     }
     
-    /// Validate block inherents
+    /// Basic block validation
     pub fn validate(&self) -> Result<(), &'static str> {
-        // Basic validation
         if self.block_number == 0 {
             return Err("Block number cannot be zero");
         }
         
-        // Check timestamp
-        if let Some(timestamp) = self.get_inherent_timestamp()? {
-            if timestamp.as_millis() == 0 {
-                return Err("Block timestamp cannot be zero");
-            }
+        if self.timestamp == 0 {
+            return Err("Block timestamp cannot be zero");
         }
         
         Ok(())
     }
-    
-    /// Get block hash (simplified)
-    pub fn hash(&self) -> [u8; 32] {
-        // Simple hash based on block number and timestamp
-        let mut hash = [0u8; 32];
-        let combined = self.block_number.wrapping_add(self.timestamp);
-        let bytes = combined.to_le_bytes();
-        
-        for (i, &byte) in bytes.iter().enumerate() {
-            hash[i % 32] ^= byte;
-        }
-        
-        hash
-    }
-    
-    /// Serialize block to JSON
-    pub fn to_json(&self) -> Result<String, &'static str> {
-        serde_json::to_string_pretty(self)
-            .map_err(|_| "Failed to serialize block")
-    }
-    
-    /// Deserialize block from JSON
-    pub fn from_json(json: &str) -> Result<Self, &'static str> {
-        serde_json::from_str(json)
-            .map_err(|_| "Failed to deserialize block")
-    }
 }
 ```
 
-#### **Custom Inherent Provider Example:**
+### Methods for You to Implement
+
+#### **1. Collect Inherent Data (`collect_inherent_data`):**
 ```rust
-/// Custom data structure for inherents
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CustomData {
-    pub message: String,
-    pub value: u64,
-    pub active: bool,
-}
-
-/// Custom inherent provider for demonstration
-pub struct CustomDataProvider {
-    data: CustomData,
-    required: bool,
-}
-
-impl CustomDataProvider {
-    pub fn new(message: String, value: u64, active: bool, required: bool) -> Self {
-        Self { 
-            data: CustomData { message, value, active },
-            required,
-        }
-    }
-}
-
-impl InherentDataProvider for CustomDataProvider {
-    const INHERENT_IDENTIFIER: &'static str = "custom_data";
-    
-    fn provide_inherent_data(&self) -> Result<InherentData, &'static str> {
-        let mut inherent_data = InherentData::new();
-        inherent_data.put_data(Self::INHERENT_IDENTIFIER, &self.data)?;
-        Ok(inherent_data)
-    }
-    
-    fn is_inherent_required(&self) -> bool {
-        self.required
-    }
-    
-    fn error_message(&self) -> &'static str {
-        "Custom inherent data is required"
+impl BlockConstructor {
+    // TODO: Implement this method
+    /// Collect all inherent data from registered providers
+    pub fn collect_inherent_data(&self) -> Result<InherentData, &'static str> {
+        // IMPLEMENT:
+        // 1. Create new empty InherentData
+        // 2. Iterate through all providers
+        // 3. For each provider that is_inherent_required():
+        //    - Call provide_inherent_data()
+        //    - Merge the data into combined_data
+        //    - Check for duplicate identifiers (return error if found)
+        // 4. Return the combined InherentData
+        todo!()
     }
 }
 ```
 
-### Tests
+#### **2. Validate Inherents (`validate_inherents`):**
+```rust
+impl BlockConstructor {
+    // TODO: Implement this method
+    /// Validate that all required inherents are present
+    pub fn validate_inherents(&self, inherent_data: &InherentData) -> Result<(), &'static str> {
+        // IMPLEMENT:
+        // 1. Check that all required inherents are present
+        // 2. For each provider that is_inherent_required():
+        //    - Check if inherent_data.has_data(provider's identifier)
+        //    - Return provider.error_message() if missing
+        // 3. Validate timestamp if present:
+        //    - Get timestamp bytes and convert to Timestamp
+        //    - Check if timestamp > 0
+        //    - Basic drift check (not too far in future)
+        // 4. Return Ok(()) if all validations pass
+        todo!()
+    }
+}
+```
 
-Create comprehensive tests covering:
+#### **3. Build Block (`build_block`):**
+```rust
+impl BlockConstructor {
+    // TODO: Implement this method
+    /// Build complete block with inherents
+    pub fn build_block(&self) -> Result<Block, &'static str> {
+        // IMPLEMENT:
+        // 1. Call collect_inherent_data() to get all inherents
+        // 2. Call validate_inherents() to ensure data is valid
+        // 3. Extract timestamp from inherents for block header
+        // 4. Create and return Block with:
+        //    - block_number from self
+        //    - inherent_data collected
+        //    - timestamp extracted (or current time if missing)
+        todo!()
+    }
+}
+```
 
-1. **Inherent Data Container:**
-   - Test data insertion and retrieval with serde
-   - Test JSON serialization/deserialization
-   - Test error handling for invalid JSON data
+### Tests to Implement
 
-2. **Timestamp Provider:**
-   - Test timestamp generation and serialization
-   - Test custom timestamp setting
-   - Test inherent data format with JSON
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-3. **Block Construction:**
-   - Test provider registration
-   - Test inherent data collection and merging
-   - Test validation of required inherents
+    #[test]
+    fn test_basic_functionality() {
+        // TODO: Implement this test
+        // 1. Create InherentData container
+        // 2. Test put_data with some sample data
+        // 3. Test get_data retrieves the same data
+        // 4. Test has_data returns true for existing identifier
+        // 5. Test identifiers() returns correct list
+        todo!()
+    }
 
-4. **Block Validation:**
-   - Test valid block construction with JSON serialization
-   - Test missing required inherents
-   - Test duplicate inherent identifiers
+    #[test]
+    fn test_timestamp_provider() {
+        // TODO: Implement this test
+        // 1. Create TimestampProvider with custom timestamp
+        // 2. Call provide_inherent_data()
+        // 3. Verify data contains "timestamp" identifier
+        // 4. Extract timestamp bytes and decode back to Timestamp
+        // 5. Verify decoded timestamp matches original
+        todo!()
+    }
 
-5. **Integration:**
-   - Test full block construction process with serde
-   - Test multiple providers working together
-   - Test JSON export/import of complete blocks
+    #[test]
+    fn test_block_construction_success() {
+        // TODO: Implement this test
+        // 1. Create BlockConstructor
+        // 2. Register TimestampProvider
+        // 3. Call build_block() and verify it succeeds
+        // 4. Check block contains timestamp in inherent_data
+        // 5. Verify block.validate() passes
+        todo!()
+    }
+
+    #[test]
+    fn test_missing_required_inherent() {
+        // TODO: Implement this test
+        // 1. Create BlockConstructor without any providers
+        // 2. Try to build_block() and verify it fails
+        // 3. Check error message is about missing timestamp
+        todo!()
+    }
+}
+```
+
+### Example Usage
+
+```rust
+fn main() {
+    let mut constructor = BlockConstructor::new(1);
+    
+    // Register timestamp provider
+    let timestamp_provider = Box::new(TimestampProvider::new());
+    constructor.register_provider(timestamp_provider);
+    
+    println!("Registered {} providers", constructor.provider_count());
+    
+    // Build block
+    match constructor.build_block() {
+        Ok(block) => {
+            println!("Built block #{}", block.block_number);
+            
+            if let Ok(Some(timestamp)) = block.get_inherent_timestamp() {
+                println!("Block timestamp: {}", timestamp.as_millis());
+            }
+            
+            match block.validate() {
+                Ok(()) => println!("Block validation: PASSED"),
+                Err(e) => println!("Block validation: FAILED - {}", e),
+            }
+        }
+        Err(e) => println!("Block construction failed: {}", e),
+    }
+}
+```
 
 ### Expected Output
 
 A complete inherent data system that:
-- Uses serde for JSON serialization/deserialization
-- Provides external data for block construction
+- Demonstrates Substrate's inherent provider pattern
+- Handles external data integration during block construction
 - Validates required inherents are present
-- Handles encoding/decoding of inherent data
-- Demonstrates understanding of Substrate's inherent system
-- Shows proper error handling and validation
+- Shows proper timestamp handling essential in blockchain systems
+- Implements error handling for missing or invalid data
 
 ### Theoretical Context
 
 **Inherents in Substrate:**
-- **Purpose:** Include external data that must be in every block
-- **Examples:** Timestamps, validator set changes, oracle data
-- **Block Construction:** Inherents are added during block authoring
-- **Validation:** Both at construction time and when importing blocks
-- **Providers:** External systems that supply inherent data
+- **Purpose**: Include external data that must be in every block
+- **Block Construction**: Inherents are added during block authoring phase
+- **Validation**: Checked both at construction and block import time
+- **Essential Data**: Timestamps, validator sets, oracle feeds, etc.
 
-**Serialization in Substrate:**
-- **serde:** Standard Rust serialization framework
-- **JSON Format:** Human-readable format for debugging and testing
-- **Encoding:** Data must be encoded for storage in blocks
-- **Decoding:** Blocks must be decoded when imported/validated
+**Provider Pattern:**
+- **Modularity**: Different providers handle different types of data
+- **Registration**: Providers register with block construction system
+- **Lifecycle**: Called during each block construction cycle
+- **Reliability**: System continues even if optional providers fail
 
-**Inherent Data Flow:**
-1. **Collection:** Providers supply data during block construction
-2. **Serialization:** Data is serialized to JSON format
-3. **Validation:** Data is validated before inclusion
-4. **Inclusion:** Inherent transactions are added to block
-5. **Verification:** Imported blocks are validated for required inherents
+**Timestamp Inherents:**
+- **Universal Requirement**: Every Substrate block needs a timestamp
+- **Consensus**: Provides time reference for consensus mechanisms
+- **Validation**: Prevents blocks with invalid timestamps
+- **Drift Protection**: Basic checks against unrealistic timestamps
 
-**Best Practices:**
-- Always validate inherent data before inclusion
-- Handle serialization errors gracefully
-- Ensure required inherents are always present
-- Use unique identifiers to prevent conflicts
-- Provide clear error messages for debugging
+**Key Design Patterns:**
+1. **Provider Registration**: Modular data source management
+2. **Data Collection**: Aggregating multiple data sources
+3. **Validation Pipeline**: Ensuring data integrity before block creation
+4. **Error Isolation**: Individual provider failures don't break entire system
 
-This system demonstrates how external data is reliably included in blockchain blocks through Substrate's inherent mechanism with proper serialization support. 
+This challenge teaches essential Substrate concepts for understanding how external data integrates into blockchain operations and the critical role of inherents in block construction. 
