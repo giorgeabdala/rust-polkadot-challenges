@@ -1,6 +1,6 @@
-# Challenge 6: SCALE Codec and Serialization
+# Challenge 6: SCALE Codec Basics
 
-**Estimated Time:** 35 minutes  
+**Estimated Time:** 30 minutes  
 **Difficulty:** Medium  
 **Topics:** SCALE Codec, Serialization, Deserialization, Custom Encoding
 
@@ -9,8 +9,7 @@
 By completing this challenge, you will understand:
 - SCALE (Simple Concatenated Aggregate Little-Endian) codec principles
 - Manual implementation of encoding/decoding
-- Compact encoding for integers
-- Custom serialization for complex types
+- Custom serialization for simple types
 - Error handling in codec operations
 
 ## Background
@@ -25,256 +24,268 @@ SCALE is used throughout Substrate for storage, extrinsics, and runtime communic
 
 ## Challenge
 
-Create a custom serialization system that demonstrates SCALE codec principles.
+Create a simplified serialization system that demonstrates basic SCALE codec principles.
 
-### Requirements
+### Structures to Implement
 
-1. **Create basic codec traits:**
-   ```rust
-   trait Encode {
-       fn encode(&self) -> Vec<u8>;
-       fn size_hint(&self) -> usize {
-           0
-       }
-   }
-
-   trait Decode: Sized {
-       fn decode(input: &mut &[u8]) -> Result<Self, CodecError>;
-   }
-
-   #[derive(Debug, PartialEq)]
-   enum CodecError {
-       NotEnoughData,
-       InvalidData(String),
-       UnexpectedEnd,
-   }
-   ```
-
-2. **Implement basic type encodings:**
-   - `u8`, `u16`, `u32`, `u64` (little-endian)
-   - `bool` (0x00 for false, 0x01 for true)
-   - `Option<T>` (0x00 for None, 0x01 + encoded T for Some)
-   - `Vec<T>` (compact length + encoded elements)
-   - `String` (as Vec<u8> of UTF-8 bytes)
-
-3. **Create a `Compact<T>` wrapper for efficient integer encoding:**
-   ```rust
-   struct Compact<T>(pub T);
-   
-   // Compact encoding rules:
-   // 0b00 prefix: single byte mode (0-63)
-   // 0b01 prefix: two-byte mode (64-16383)
-   // 0b10 prefix: four-byte mode (16384-1073741823)
-   // 0b11 prefix: big-integer mode (1073741824+)
-   ```
-
-4. **Create custom data structures:**
-   ```rust
-   #[derive(Debug, PartialEq)]
-   struct Account {
-       id: u32,
-       balance: u64,
-       nonce: u32,
-       is_active: bool,
-   }
-
-   #[derive(Debug, PartialEq)]
-   enum TransactionType {
-       Transfer { to: u32, amount: u64 },
-       Stake { amount: u64 },
-       Unstake,
-       Vote { proposal_id: u32, approve: bool },
-   }
-
-   #[derive(Debug, PartialEq)]
-   struct Transaction {
-       from: u32,
-       tx_type: TransactionType,
-       nonce: Compact<u32>,
-       signature: Vec<u8>,
-   }
-   ```
-
-5. **Implement codec for custom types:**
-   - Manual `Encode` and `Decode` implementations
-   - Proper error handling for malformed data
-   - Round-trip testing (encode then decode should equal original)
-
-### Expected Behavior
-
+#### **Basic Codec Traits:**
 ```rust
-// Basic type encoding
-let value: u32 = 42;
-let encoded = value.encode();
-assert_eq!(encoded, vec![42, 0, 0, 0]); // little-endian
-
-// Compact encoding
-let compact = Compact(300u32);
-let encoded = compact.encode();
-// Should use 2-byte mode: 0b01 prefix + 300 in little-endian
-
-// Custom struct encoding
-let account = Account {
-    id: 123,
-    balance: 1000000,
-    nonce: 5,
-    is_active: true,
-};
-
-let encoded = account.encode();
-let mut input = encoded.as_slice();
-let decoded = Account::decode(&mut input).unwrap();
-assert_eq!(account, decoded);
-
-// Complex enum encoding
-let tx = Transaction {
-    from: 456,
-    tx_type: TransactionType::Transfer { to: 789, amount: 500 },
-    nonce: Compact(10),
-    signature: vec![1, 2, 3, 4],
-};
-
-let encoded = tx.encode();
-let mut input = encoded.as_slice();
-let decoded = Transaction::decode(&mut input).unwrap();
-assert_eq!(tx, decoded);
-```
-
-## Advanced Requirements
-
-1. **Implement a generic `Codec` derive-like functionality:**
-   ```rust
-   fn derive_encode_for_struct(fields: &[(&str, Box<dyn Encode>)]) -> Vec<u8> {
-       // Generic struct encoding
-   }
-   ```
-
-2. **Create a `EncodeAppend` trait for efficient appending:**
-   ```rust
-   trait EncodeAppend<T> {
-       fn encode_append(&mut self, item: &T);
-   }
-   ```
-
-3. **Implement versioned encoding:**
-   ```rust
-   #[derive(Debug, PartialEq)]
-   struct VersionedAccount {
-       version: u8,
-       data: AccountData,
-   }
-   
-   enum AccountData {
-       V1(AccountV1),
-       V2(AccountV2),
-   }
-   ```
-
-## Testing
-
-Write comprehensive tests that demonstrate:
-- Round-trip encoding/decoding for all types
-- Compact integer encoding efficiency
-- Error handling for malformed data
-- Enum variant encoding/decoding
-- Complex nested structure handling
-
-```rust
-#[test]
-fn test_compact_encoding() {
-    // Test different compact encoding modes
-    assert_eq!(Compact(0u32).encode(), vec![0x00]);
-    assert_eq!(Compact(63u32).encode(), vec![0xFC]);
-    assert_eq!(Compact(64u32).encode(), vec![0x01, 0x01]);
-    assert_eq!(Compact(16383u32).encode(), vec![0xFD, 0xFF]);
+trait Encode {
+    fn encode(&self) -> Vec<u8>;
 }
 
-#[test]
-fn test_enum_encoding() {
-    let transfer = TransactionType::Transfer { to: 100, amount: 200 };
-    let encoded = transfer.encode();
-    
+trait Decode: Sized {
+    fn decode(input: &mut &[u8]) -> Result<Self, CodecError>;
+}
+
+#[derive(Debug, PartialEq)]
+enum CodecError {
+    NotEnoughData,
+    InvalidData(String),
+}
+```
+
+#### **Basic Data Structures:**
+```rust
+#[derive(Debug, PartialEq)]
+struct Account {
+    id: u32,
+    balance: u64,
+    is_active: bool,
+}
+
+#[derive(Debug, PartialEq)]
+enum TransactionType {
+    Transfer { to: u32, amount: u64 },
+    Stake { amount: u64 },
+    Vote { proposal_id: u32 },
+}
+```
+
+### Provided Implementations
+
+#### **Basic Type Encodings:**
+```rust
+impl Encode for u32 {
+    fn encode(&self) -> Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
+}
+
+impl Decode for u32 {
+    fn decode(input: &mut &[u8]) -> Result<Self, CodecError> {
+        if input.len() < 4 {
+            return Err(CodecError::NotEnoughData);
+        }
+        let mut bytes = [0u8; 4];
+        bytes.copy_from_slice(&input[..4]);
+        *input = &input[4..];
+        Ok(u32::from_le_bytes(bytes))
+    }
+}
+
+impl Encode for u64 {
+    fn encode(&self) -> Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
+}
+
+impl Decode for u64 {
+    fn decode(input: &mut &[u8]) -> Result<Self, CodecError> {
+        if input.len() < 8 {
+            return Err(CodecError::NotEnoughData);
+        }
+        let mut bytes = [0u8; 8];
+        bytes.copy_from_slice(&input[..8]);
+        *input = &input[8..];
+        Ok(u64::from_le_bytes(bytes))
+    }
+}
+
+impl Encode for bool {
+    fn encode(&self) -> Vec<u8> {
+        vec![if *self { 1 } else { 0 }]
+    }
+}
+
+impl Decode for bool {
+    fn decode(input: &mut &[u8]) -> Result<Self, CodecError> {
+        if input.is_empty() {
+            return Err(CodecError::NotEnoughData);
+        }
+        let value = input[0];
+        *input = &input[1..];
+        match value {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => Err(CodecError::InvalidData("Invalid bool value".to_string())),
+        }
+    }
+}
+```
+
+### Methods for You to Implement
+
+#### **1. Account Encoding (`Encode for Account`):**
+```rust
+impl Encode for Account {
+    // TODO: Implement this method
+    fn encode(&self) -> Vec<u8> {
+        // IMPLEMENT:
+        // 1. Create empty result vector
+        // 2. Extend with id.encode()
+        // 3. Extend with balance.encode()
+        // 4. Extend with is_active.encode()
+        // 5. Return result
+        todo!()
+    }
+}
+```
+
+#### **2. Account Decoding (`Decode for Account`):**
+```rust
+impl Decode for Account {
+    // TODO: Implement this method
+    fn decode(input: &mut &[u8]) -> Result<Self, CodecError> {
+        // IMPLEMENT:
+        // 1. Decode id using u32::decode(input)?
+        // 2. Decode balance using u64::decode(input)?
+        // 3. Decode is_active using bool::decode(input)?
+        // 4. Return Ok(Account { id, balance, is_active })
+        todo!()
+    }
+}
+```
+
+#### **3. Transaction Type Encoding (`Encode for TransactionType`):**
+```rust
+impl Encode for TransactionType {
+    // TODO: Implement this method
+    fn encode(&self) -> Vec<u8> {
+        // IMPLEMENT:
+        // Use discriminant + data pattern:
+        // 1. Transfer: discriminant 0 + to + amount
+        // 2. Stake: discriminant 1 + amount  
+        // 3. Vote: discriminant 2 + proposal_id
+        // Remember to encode discriminant as u8
+        todo!()
+    }
+}
+```
+
+#### **4. Transaction Type Decoding (`Decode for TransactionType`):**
+```rust
+impl Decode for TransactionType {
+    // TODO: Implement this method
+    fn decode(input: &mut &[u8]) -> Result<Self, CodecError> {
+        // IMPLEMENT:
+        // 1. Check if input has at least 1 byte for discriminant
+        // 2. Read discriminant and advance input
+        // 3. Match discriminant:
+        //    - 0: decode to + amount for Transfer
+        //    - 1: decode amount for Stake  
+        //    - 2: decode proposal_id for Vote
+        //    - other: return InvalidData error
+        todo!()
+    }
+}
+```
+
+### Tests to Implement
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic_types() {
+        // TODO: Implement this test
+        // Test u32, u64, bool round-trip encoding/decoding
+        todo!()
+    }
+
+    #[test]
+    fn test_account_codec() {
+        // TODO: Implement this test
+        // 1. Create test account
+        // 2. Encode it
+        // 3. Decode it back
+        // 4. Assert they're equal
+        todo!()
+    }
+
+    #[test]
+    fn test_transaction_type_codec() {
+        // TODO: Implement this test
+        // Test each TransactionType variant round-trip
+        todo!()
+    }
+
+    #[test]
+    fn test_decode_errors() {
+        // TODO: Implement this test
+        // Test NotEnoughData and InvalidData errors
+        todo!()
+    }
+}
+```
+
+### Example Usage
+
+```rust
+fn main() {
+    // Basic type encoding
+    let value: u32 = 42;
+    let encoded = value.encode();
     let mut input = encoded.as_slice();
-    let decoded = TransactionType::decode(&mut input).unwrap();
-    assert_eq!(transfer, decoded);
+    let decoded = u32::decode(&mut input).unwrap();
+    assert_eq!(value, decoded);
+
+    // Custom struct encoding
+    let account = Account {
+        id: 123,
+        balance: 1000000,
+        is_active: true,
+    };
+
+    let encoded = account.encode();
+    let mut input = encoded.as_slice();
+    let decoded = Account::decode(&mut input).unwrap();
+    assert_eq!(account, decoded);
+
+    println!("Account encoding successful!");
 }
 ```
 
-## Codec Implementation Patterns
+### Expected Output
 
-1. **Struct Encoding (concatenation):**
-   ```rust
-   impl Encode for Account {
-       fn encode(&self) -> Vec<u8> {
-           let mut result = Vec::new();
-           result.extend(self.id.encode());
-           result.extend(self.balance.encode());
-           result.extend(self.nonce.encode());
-           result.extend(self.is_active.encode());
-           result
-       }
-   }
-   ```
+A basic SCALE codec system that:
+- Demonstrates fundamental encoding/decoding patterns
+- Handles simple data types (u32, u64, bool)
+- Implements custom serialization for structs and enums
+- Provides proper error handling for malformed data
+- Shows round-trip encoding correctness
 
-2. **Enum Encoding (discriminant + data):**
-   ```rust
-   impl Encode for TransactionType {
-       fn encode(&self) -> Vec<u8> {
-           match self {
-               TransactionType::Transfer { to, amount } => {
-                   let mut result = vec![0]; // discriminant
-                   result.extend(to.encode());
-                   result.extend(amount.encode());
-                   result
-               }
-               // ... other variants
-           }
-       }
-   }
-   ```
+### Theoretical Context
 
-3. **Safe Decoding:**
-   ```rust
-   impl Decode for Account {
-       fn decode(input: &mut &[u8]) -> Result<Self, CodecError> {
-           let id = u32::decode(input)?;
-           let balance = u64::decode(input)?;
-           let nonce = u32::decode(input)?;
-           let is_active = bool::decode(input)?;
-           
-           Ok(Account { id, balance, nonce, is_active })
-       }
-   }
-   ```
+**SCALE Codec Principles:**
+- **Little-Endian**: All multi-byte integers use little-endian byte order
+- **Concatenation**: Struct fields are simply concatenated
+- **Discriminants**: Enums use byte discriminants followed by variant data
+- **No Metadata**: Encoded data contains no type information
+- **Deterministic**: Same input always produces identical output
 
-## Tips
+**Key Patterns:**
+1. **Struct Encoding**: Concatenate all field encodings
+2. **Enum Encoding**: Discriminant byte + variant data
+3. **Error Handling**: Graceful handling of insufficient/invalid data
+4. **Round-trip Testing**: Ensure encode(decode(x)) == x
 
-- Always use little-endian byte order
-- Handle partial reads gracefully
-- Use compact encoding for frequently used integers
-- Test with edge cases (empty data, maximum values)
-- Consider backwards compatibility for versioned data
-
-## Key Learning Points
-
-- **SCALE Principles**: Efficiency, determinism, simplicity
-- **Compact Encoding**: Space-efficient integer representation
-- **Error Handling**: Robust decoding with proper error types
-- **Custom Serialization**: Implementing codec for complex types
-- **Testing Strategy**: Ensuring round-trip correctness
-
-## Substrate Connection
-
-SCALE codec in Substrate:
-- `parity-scale-codec` crate provides derive macros
+**Substrate Connection:**
 - Storage items are SCALE-encoded
-- Extrinsics use SCALE for parameters
+- Extrinsic parameters use SCALE
 - Runtime API calls encode/decode with SCALE
-- Cross-chain messages (XCM) use SCALE
+- Cross-chain messages use SCALE format
 
-## Bonus Challenges
-
-⚠️ **For Advanced Exploration - Substrate Preparation**
-
-1. **Custom derive macros** - Understand procedural macros used in Substrate
-2. **Performance-critical encoding** - Optimize for blockchain storage efficiency 
+This challenge teaches essential SCALE concepts needed for Substrate development. 

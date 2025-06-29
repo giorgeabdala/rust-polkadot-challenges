@@ -1,11 +1,11 @@
-## Challenge 11: Simple Asset Transfer via Mocked XCM
+## Challenge 11: Simple Asset Transfer Between Chains
 
 **Difficulty Level:** Advanced
-**Estimated Time:** 1.5 hours
+**Estimated Time:** 1 hour
 
 ### Objective Description
 
-In this challenge, you will simulate a simple asset transfer between two mocked "chains" (Chain A and Chain B). Each chain will have a basic asset management system to handle user balances. The focus is on understanding cross-chain communication concepts through simplified XCM-like message structures.
+In this challenge, you will simulate a simple asset transfer between two simulated "chains" (Chain A and Chain B). Each chain will have a basic asset management system to handle user balances. The focus is on understanding cross-chain communication concepts through simplified message structures.
 
 ### Main Concepts Covered
 
@@ -13,7 +13,6 @@ In this challenge, you will simulate a simple asset transfer between two mocked 
 2. **Asset Management**: Simple balance tracking across chains
 3. **Message Processing**: Handling incoming transfer messages
 4. **Validation**: Basic checks for transfers (balance, destination)
-5. **Event Emission**: Tracking transfer activities
 
 ### Structures to Implement
 
@@ -64,45 +63,13 @@ impl TransferMessage {
 }
 ```
 
-#### **Chain Configuration:**
-```rust
-pub trait ChainConfig {
-    fn chain_id() -> ChainId;
-    fn chain_name() -> &'static str;
-}
-```
-
-#### **Events:**
-```rust
-#[derive(Clone, Debug, PartialEq)]
-pub enum Event {
-    TransferInitiated {
-        from_account: AccountId,
-        to_chain: ChainId,
-        to_account: AccountId,
-        asset_id: AssetId,
-        amount: Balance,
-    },
-    TransferReceived {
-        from_chain: ChainId,
-        from_account: AccountId,
-        to_account: AccountId,
-        asset_id: AssetId,
-        amount: Balance,
-    },
-}
-```
-
 #### **Errors:**
 ```rust
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     InsufficientBalance,
     InvalidDestinationChain,
-    UnsupportedAsset,
     ZeroAmountTransfer,
-    AccountNotFound,
-    MessageProcessingFailed(String),
 }
 ```
 
@@ -110,33 +77,27 @@ pub enum Error {
 ```rust
 use std::collections::HashMap;
 
-pub struct AssetPallet<C: ChainConfig> {
+pub struct AssetPallet {
     // Maps (AccountId, AssetId) -> Balance
     balances: HashMap<(AccountId, AssetId), Balance>,
-    emitted_events: Vec<Event>,
-    _phantom: std::marker::PhantomData<C>,
+    chain_id: ChainId,
 }
 ```
 
-### Required Methods of `AssetPallet<C: ChainConfig>`
+### Provided Methods of `AssetPallet`
 
 #### **Constructor and Utilities:**
 ```rust
-impl<C: ChainConfig> AssetPallet<C> {
-    pub fn new() -> Self {
+impl AssetPallet {
+    pub fn new(chain_id: ChainId) -> Self {
         Self {
             balances: HashMap::new(),
-            emitted_events: Vec::new(),
-            _phantom: std::marker::PhantomData,
+            chain_id,
         }
     }
     
-    fn deposit_event(&mut self, event: Event) {
-        self.emitted_events.push(event);
-    }
-    
-    pub fn take_events(&mut self) -> Vec<Event> {
-        std::mem::take(&mut self.emitted_events)
+    pub fn get_chain_id(&self) -> ChainId {
+        self.chain_id
     }
     
     pub fn balance_of(&self, account: &AccountId, asset_id: &AssetId) -> Balance {
@@ -167,9 +128,12 @@ impl<C: ChainConfig> AssetPallet<C> {
 }
 ```
 
-#### **Transfer Operations:**
+### Methods for You to Implement
+
+#### **1. Transfer Initiation (`initiate_transfer`):**
 ```rust
-impl<C: ChainConfig> AssetPallet<C> {
+impl AssetPallet {
+    // TODO: Implement this method
     pub fn initiate_transfer(
         &mut self,
         sender: AccountId,
@@ -178,132 +142,37 @@ impl<C: ChainConfig> AssetPallet<C> {
         asset_id: AssetId,
         amount: Balance,
     ) -> Result<TransferMessage, Error> {
-        // Validation checks
-        if destination_chain == C::chain_id() {
-            return Err(Error::InvalidDestinationChain);
-        }
-        
-        if amount == 0 {
-            return Err(Error::ZeroAmountTransfer);
-        }
-        
-        if asset_id != AssetId::MainToken {
-            return Err(Error::UnsupportedAsset);
-        }
-        
-        // Check sender balance
-        if self.balance_of(&sender, &asset_id) < amount {
-            return Err(Error::InsufficientBalance);
-        }
-        
-        // Debit from sender
-        self.decrease_balance(&sender, asset_id, amount)?;
-        
-        // Create transfer message
-        let message = TransferMessage::new(
-            C::chain_id(),
-            destination_chain,
-            sender.clone(),
-            beneficiary.clone(),
-            asset_id,
-            amount,
-        );
-        
-        // Emit event
-        self.deposit_event(Event::TransferInitiated {
-            from_account: sender,
-            to_chain: destination_chain,
-            to_account: beneficiary,
-            asset_id,
-            amount,
-        });
-        
-        Ok(message)
+        // IMPLEMENT:
+        // 1. Validate that destination_chain is different from current chain
+        // 2. Validate that amount > 0
+        // 3. Check if sender has sufficient balance
+        // 4. Decrease sender's balance
+        // 5. Create and return TransferMessage
+        todo!()
     }
-    
+}
+```
+
+#### **2. Incoming Transfer Processing (`process_incoming_transfer`):**
+```rust
+impl AssetPallet {
+    // TODO: Implement this method
     pub fn process_incoming_transfer(
         &mut self,
         message: TransferMessage,
     ) -> Result<(), Error> {
-        // Validate message is for this chain
-        if message.to_chain != C::chain_id() {
-            return Err(Error::MessageProcessingFailed(
-                "Message not intended for this chain".to_string()
-            ));
-        }
-        
-        // Validate asset
-        if message.asset_id != AssetId::MainToken {
-            return Err(Error::UnsupportedAsset);
-        }
-        
-        // Credit to beneficiary
-        self.increase_balance(&message.to_account, message.asset_id, message.amount);
-        
-        // Emit event
-        self.deposit_event(Event::TransferReceived {
-            from_chain: message.from_chain,
-            from_account: message.from_account,
-            to_account: message.to_account,
-            asset_id: message.asset_id,
-            amount: message.amount,
-        });
-        
-        Ok(())
+        // IMPLEMENT:
+        // 1. Validate that the message is intended for this chain
+        // 2. Increase beneficiary's balance
+        // 3. Return Ok(())
+        todo!()
     }
 }
 ```
 
-#### **Query Methods:**
-```rust
-impl<C: ChainConfig> AssetPallet<C> {
-    pub fn get_total_balance(&self, account: &AccountId) -> Balance {
-        self.balance_of(account, &AssetId::MainToken)
-    }
-    
-    pub fn get_all_balances(&self) -> Vec<(AccountId, AssetId, Balance)> {
-        self.balances
-            .iter()
-            .map(|((account, asset_id), balance)| (account.clone(), *asset_id, *balance))
-            .collect()
-    }
-    
-    pub fn get_chain_info() -> (ChainId, &'static str) {
-        (C::chain_id(), C::chain_name())
-    }
-}
-```
+### Tests to Implement
 
-### Test Configuration
-
-#### **Chain Configurations:**
-```rust
-struct ChainAConfig;
-impl ChainConfig for ChainAConfig {
-    fn chain_id() -> ChainId {
-        ChainId(1)
-    }
-    
-    fn chain_name() -> &'static str {
-        "Chain A"
-    }
-}
-
-struct ChainBConfig;
-impl ChainConfig for ChainBConfig {
-    fn chain_id() -> ChainId {
-        ChainId(2)
-    }
-    
-    fn chain_name() -> &'static str {
-        "Chain B"
-    }
-}
-```
-
-### Tests
-
-Create comprehensive tests covering:
+Create tests that cover:
 
 #### **Test Scenarios:**
 
@@ -313,44 +182,40 @@ Create comprehensive tests covering:
    - Test balance updates on both chains
 
 2. **Validation Tests:**
-   - Test insufficient balance rejection
-   - Test zero amount rejection
-   - Test same chain transfer rejection
-   - Test unsupported asset rejection
+   - Rejection due to insufficient balance
+   - Rejection due to zero amount
+   - Rejection due to same chain transfer
 
-3. **Event Emission:**
-   - Test TransferInitiated event
-   - Test TransferReceived event
-   - Test event data accuracy
+3. **Integration Test:**
+   - Complete transfer flow between two chains
+   - Balance consistency verification
 
-4. **Integration Tests:**
-   - Test complete transfer flow between two chains
-   - Test multiple transfers
-   - Test balance consistency
+### Test Configurations
 
-5. **Edge Cases:**
-   - Test transfer to non-existent account
-   - Test processing invalid messages
-   - Test boundary conditions
+```rust
+// Constants for tests
+const CHAIN_A_ID: ChainId = ChainId(1);
+const CHAIN_B_ID: ChainId = ChainId(2);
+```
 
 ### Example Usage
 
 ```rust
 fn main() {
     // Create two chains
-    let mut chain_a = AssetPallet::<ChainAConfig>::new();
-    let mut chain_b = AssetPallet::<ChainBConfig>::new();
+    let mut chain_a = AssetPallet::new(CHAIN_A_ID);
+    let mut chain_b = AssetPallet::new(CHAIN_B_ID);
     
     // Set initial balances
     chain_a.set_balance("alice".to_string(), AssetId::MainToken, 1000);
     
     println!("Alice balance on Chain A: {}", 
-             chain_a.get_total_balance(&"alice".to_string()));
+             chain_a.balance_of(&"alice".to_string(), &AssetId::MainToken));
     
     // Initiate transfer from Chain A to Chain B
     let transfer_msg = chain_a.initiate_transfer(
         "alice".to_string(),
-        ChainId(2), // Chain B
+        CHAIN_B_ID,
         "bob".to_string(),
         AssetId::MainToken,
         100,
@@ -360,19 +225,18 @@ fn main() {
     chain_b.process_incoming_transfer(transfer_msg).unwrap();
     
     println!("Alice balance on Chain A: {}", 
-             chain_a.get_total_balance(&"alice".to_string())); // 900
+             chain_a.balance_of(&"alice".to_string(), &AssetId::MainToken)); // 900
     println!("Bob balance on Chain B: {}", 
-             chain_b.get_total_balance(&"bob".to_string()));   // 100
+             chain_b.balance_of(&"bob".to_string(), &AssetId::MainToken));   // 100
 }
 ```
 
 ### Expected Output
 
-A complete cross-chain asset transfer system that:
+A simple cross-chain asset transfer system that:
 - Demonstrates basic cross-chain communication concepts
 - Implements asset transfer with proper validation
-- Handles balance management across multiple chains
-- Provides clear event tracking
+- Manages balances across multiple chains
 - Shows understanding of message-based chain interaction
 
 ### Theoretical Context
@@ -383,10 +247,10 @@ A complete cross-chain asset transfer system that:
 - **Validation**: Ensuring transfers are legitimate and properly formatted
 - **State Consistency**: Maintaining accurate balances across chains
 
-**Key Simplifications:**
-- **Direct Messaging**: Simple message structure instead of complex XCM format
+**Simplifications in This Challenge:**
+- **Direct Messaging**: Simple structure instead of complex XCM format
 - **Single Asset**: Focus on one asset type to reduce complexity
-- **Immediate Processing**: Direct message processing without consensus delays
+- **Immediate Processing**: Direct processing without consensus delays
 - **No Fees**: Simplified economics without transfer fees
 
-This challenge teaches essential cross-chain concepts while maintaining focus on the core mechanisms that enable asset transfers between blockchain networks. 
+This challenge teaches essential cross-chain concepts while maintaining focus on the fundamental mechanisms that enable asset transfers between blockchain networks. 
