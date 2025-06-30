@@ -130,6 +130,8 @@ pub struct TimestampProvider {
 }
 
 impl TimestampProvider {
+    pub const INHERENT_IDENTIFIER: &'static str = "timestamp";
+    
     /// Create new timestamp provider
     pub fn new() -> Self {
         Self {
@@ -159,6 +161,14 @@ impl InherentDataProvider for TimestampProvider {
         let timestamp = self.get_timestamp();
         inherent_data.put_data(Self::INHERENT_IDENTIFIER, timestamp.to_bytes());
         Ok(inherent_data)
+    }
+
+    fn is_required(&self) -> bool {
+        true
+    }
+
+    fn error_message(&self) -> &'static str {
+        "Required timestamp not found."
     }
 }
 ```
