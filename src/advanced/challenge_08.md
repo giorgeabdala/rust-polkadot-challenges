@@ -94,7 +94,7 @@ impl DataSource for MockDataSource {
         
         self.counter += 1;
         let data_point = DataPoint::new(
-            format!("data_{}", self.counter),
+            format!("{}_{}", self.name, self.counter), // ID único por fonte
             (self.counter as f64) * 10.0,
             self.name.clone(),
         );
@@ -176,6 +176,20 @@ impl OffChainWorker {
 }
 ```
 
+### **Design Note: Unique Data IDs**
+
+**Important:** Notice that the `fetch_data()` implementation generates unique IDs using the pattern `format!("{}_{}", self.name, self.counter)`. This is crucial because:
+
+1. **Cache Collision Prevention**: Without unique IDs, data from different sources would overwrite each other in the HashMap
+2. **Data Accumulation**: Multiple executions should accumulate data, not replace it
+3. **Source Identification**: Each data point can be traced back to its specific source
+4. **Real-World Pattern**: This mirrors how actual off-chain workers handle data from multiple APIs
+
+**Example ID Generation:**
+- Source "CoinGecko": generates `CoinGecko_1`, `CoinGecko_2`, `CoinGecko_3`...
+- Source "Binance": generates `Binance_1`, `Binance_2`, `Binance_3`...
+- Result: All IDs are unique, no data loss occurs
+
 ### Methods for You to Implement
 
 #### **1. Execute Worker Cycle (`execute`):**
@@ -243,7 +257,7 @@ fn main() {
     }
     
     // Retrieve cached data
-    if let Some(data) = worker.get_data("data_1") {
+    if let Some(data) = worker.get_data("API-1_1") {
         println!("Found data: {:?}", data);
     }
 }
