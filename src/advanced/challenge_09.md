@@ -23,7 +23,7 @@ In this challenge, you will implement a simplified pallet that demonstrates the 
 /// Configuration trait defining pallet dependencies
 pub trait Config {
     type AccountId: Clone + PartialEq + core::fmt::Debug;
-    type BlockNumber: Copy + PartialOrd + core::ops::Sub<Output = Self::BlockNumber>;
+    type BlockNumber: Copy + PartialOrd + core::ops::Add<Output = Self::BlockNumber>;
     type TaskLifetime: Get<Self::BlockNumber>; // How long tasks live
 }
 
