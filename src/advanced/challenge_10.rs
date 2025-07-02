@@ -250,8 +250,8 @@ mod tests {
         assert!(tx2_bob_pool_after_opt.is_some());
         let tx2_pool_after = tx2_pool_after_opt.unwrap();
         let tx2_bob_pool_after = tx2_pool_after_opt.unwrap();
-        assert_eq!(tx2_pool_after.status, PoolStatus::Pending);
-        assert_eq!(tx2_bob_pool_after.status, PoolStatus::Pending);
+        assert_eq!(tx2_pool_after.status, PoolStatus::Ready);
+        assert_eq!(tx2_bob_pool_after.status, PoolStatus::Ready);
     }
      #[test]
         fn test_build_block_selects_by_priority_and_updates_state() {

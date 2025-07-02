@@ -104,17 +104,17 @@ impl AssetPallet {
         self.balances.get(&(account.clone(), *asset_id)).copied().unwrap_or(0)
     }
     
-    pub fn set_balance(&mut self, account: AccountId, asset_id: AssetId, amount: Balance) {
+    pub fn set_balance(&mut self, account: &AccountId, asset_id: AssetId, amount: Balance) {
         if amount == 0 {
-            self.balances.remove(&(account, asset_id));
+            self.balances.remove(&(account.clone(), asset_id));
         } else {
-            self.balances.insert((account, asset_id), amount);
+            self.balances.insert((account.clone(), asset_id), amount);
         }
     }
     
     fn increase_balance(&mut self, account: &AccountId, asset_id: AssetId, amount: Balance) {
         let current = self.balance_of(account, &asset_id);
-        self.set_balance(account.clone(), asset_id, current + amount);
+        self.set_balance(account, asset_id, current + amount);
     }
     
     fn decrease_balance(&mut self, account: &AccountId, asset_id: AssetId, amount: Balance) -> Result<(), Error> {
@@ -122,7 +122,7 @@ impl AssetPallet {
         if current < amount {
             return Err(Error::InsufficientBalance);
         }
-        self.set_balance(account.clone(), asset_id, current - amount);
+        self.set_balance(account, asset_id, current - amount);
         Ok(())
     }
 }
@@ -136,9 +136,9 @@ impl AssetPallet {
     // TODO: Implement this method
     pub fn initiate_transfer(
         &mut self,
-        sender: AccountId,
+        sender: &AccountId,
         destination_chain: ChainId,
-        beneficiary: AccountId,
+        beneficiary: &AccountId,
         asset_id: AssetId,
         amount: Balance,
     ) -> Result<TransferMessage, Error> {
@@ -207,16 +207,16 @@ fn main() {
     let mut chain_b = AssetPallet::new(CHAIN_B_ID);
     
     // Set initial balances
-    chain_a.set_balance("alice".to_string(), AssetId::MainToken, 1000);
+    chain_a.set_balance(&"alice".to_string(), AssetId::MainToken, 1000);
     
     println!("Alice balance on Chain A: {}", 
              chain_a.balance_of(&"alice".to_string(), &AssetId::MainToken));
     
     // Initiate transfer from Chain A to Chain B
     let transfer_msg = chain_a.initiate_transfer(
-        "alice".to_string(),
+        &"alice".to_string(),
         CHAIN_B_ID,
-        "bob".to_string(),
+        &"bob".to_string(),
         AssetId::MainToken,
         100,
     ).unwrap();
