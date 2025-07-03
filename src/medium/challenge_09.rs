@@ -1,6 +1,5 @@
 use std::thread;
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc;
 
 // Simple counter for Arc<Mutex> demonstration
 #[derive(Debug, Clone)]
@@ -56,6 +55,7 @@ fn spawn_workers() -> Vec<thread::JoinHandle<()>> {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+    use std::sync::mpsc;
 
     #[test]
     fn test_shared_counter() {
