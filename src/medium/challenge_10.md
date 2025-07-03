@@ -26,229 +26,127 @@ Substrate has extensive testing practices that ensure reliability.
 
 Create a well-tested and documented simple account management system.
 
-### Structures to Implement
+### Data Types
 
-#### **Basic Data Types:**
 ```rust
-use std::collections::HashMap;
+/// Simple calculator for demonstrating testing and documentation
+#[derive(Debug)]
+pub struct Calculator;
 
-/// Represents a unique account identifier
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AccountId(pub String);
-
-/// Account information with balance and metadata
-#[derive(Debug, Clone, PartialEq)]
-pub struct Account {
-    pub id: AccountId,
-    pub balance: u64,
-    pub is_frozen: bool,
-}
-
-/// Errors that can occur during account operations
+/// Errors that can occur during calculations
 #[derive(Debug, PartialEq)]
-pub enum AccountError {
-    AccountNotFound(AccountId),
-    InsufficientBalance { required: u64, available: u64 },
-    AccountFrozen(AccountId),
-    InvalidAmount(u64),
+pub enum CalcError {
+    DivisionByZero,
+    Overflow,
 }
 ```
 
-#### **Account Manager Structure:**
+### Provided Implementation
+
 ```rust
-/// Manages blockchain accounts with balance tracking and validation
-/// 
-/// The `AccountManager` provides operations for:
-/// - Creating and managing accounts
-/// - Transferring funds between accounts
-/// - Freezing/unfreezing accounts
-/// - Querying account information
+impl Calculator {
+    /// Creates a new calculator instance
 /// 
 /// # Examples
 /// 
 /// ```
-/// let mut manager = AccountManager::new();
-/// let alice = AccountId("alice".to_string());
-/// 
-/// // Create account with initial balance
-/// manager.create_account(alice.clone(), 1000).unwrap();
-/// 
-/// // Check balance
-/// assert_eq!(manager.get_balance(&alice).unwrap(), 1000);
+    /// let calc = Calculator::new();
 /// ```
-pub struct AccountManager {
-    accounts: HashMap<AccountId, Account>,
-    total_supply: u64,
-}
-```
-
-### Provided Implementations
-
-#### **Basic Constructors:**
-```rust
-impl AccountId {
-    pub fn new(id: String) -> Self {
-        Self(id)
-    }
-}
-
-impl Account {
-    pub fn new(id: AccountId, balance: u64) -> Self {
-        Self {
-            id,
-            balance,
-            is_frozen: false,
-        }
-    }
-}
-
-impl AccountManager {
-    /// Creates a new empty account manager
     pub fn new() -> Self {
-        Self {
-            accounts: HashMap::new(),
-            total_supply: 0,
-        }
-    }
-    
-    /// Returns the total supply of all accounts
-    pub fn get_total_supply(&self) -> u64 {
-        self.total_supply
+        Self
     }
 }
 ```
 
-### Methods for You to Implement
+### Your Implementation
 
-#### **1. Create Account (`create_account`):**
+#### **1. Addition:**
 ```rust
-impl AccountManager {
-    /// Creates a new account with the specified initial balance
+impl Calculator {
+    /// Adds two numbers together
     /// 
     /// # Arguments
     /// 
-    /// * `id` - The account identifier
-    /// * `initial_balance` - The starting balance (must be > 0)
+    /// * `a` - First number
+    /// * `b` - Second number
     /// 
     /// # Returns
     /// 
-    /// * `Ok(())` - Account created successfully
-    /// * `Err(AccountError)` - Account already exists or invalid balance
+    /// * `Ok(sum)` - The sum of a and b
+    /// * `Err(CalcError::Overflow)` - If result overflows
     /// 
     /// # Examples
     /// 
     /// ```
-    /// let mut manager = AccountManager::new();
-    /// let alice = AccountId("alice".to_string());
-    /// 
-    /// manager.create_account(alice, 1000).unwrap();
+    /// let calc = Calculator::new();
+    /// assert_eq!(calc.add(5, 3).unwrap(), 8);
     /// ```
     // TODO: Implement this method
-    pub fn create_account(&mut self, id: AccountId, initial_balance: u64) -> Result<(), AccountError> {
+    pub fn add(&self, a: u32, b: u32) -> Result<u32, CalcError> {
         // IMPLEMENT:
-        // 1. Check if initial_balance is 0 (return InvalidAmount error)
-        // 2. Check if account already exists (return AccountError - use a custom variant)
-        // 3. Create new Account and insert into accounts HashMap
-        // 4. Update total_supply
-        // 5. Return Ok(())
+        // 1. Use checked_add to prevent overflow
+        // 2. Return Ok(result) or Err(CalcError::Overflow)
         todo!()
     }
 }
 ```
 
-#### **2. Get Account (`get_account`):**
+#### **2. Division:**
 ```rust
-impl AccountManager {
-    /// Gets a reference to an account by ID
+impl Calculator {
+    /// Divides one number by another
     /// 
     /// # Arguments
     /// 
-    /// * `id` - The account identifier to look up
+    /// * `a` - Dividend
+    /// * `b` - Divisor
     /// 
     /// # Returns
     /// 
-    /// * `Some(&Account)` - Account found
-    /// * `None` - Account not found
+    /// * `Ok(quotient)` - The result of a/b
+    /// * `Err(CalcError::DivisionByZero)` - If b is zero
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// let calc = Calculator::new();
+    /// assert_eq!(calc.divide(10, 2).unwrap(), 5);
+    /// ```
     // TODO: Implement this method
-    pub fn get_account(&self, id: &AccountId) -> Option<&Account> {
+    pub fn divide(&self, a: u32, b: u32) -> Result<u32, CalcError> {
         // IMPLEMENT:
-        // Return accounts.get(id)
+        // 1. Check if b is 0 (return DivisionByZero error)
+        // 2. Return Ok(a / b)
         todo!()
     }
 }
 ```
 
-#### **3. Get Balance (`get_balance`):**
+#### **3. Is Even:**
 ```rust
-impl AccountManager {
-    /// Gets the balance of an account
+impl Calculator {
+    /// Checks if a number is even
     /// 
     /// # Arguments
     /// 
-    /// * `id` - The account identifier
+    /// * `n` - Number to check
     /// 
     /// # Returns
     /// 
-    /// * `Ok(balance)` - Account balance
-    /// * `Err(AccountNotFound)` - Account doesn't exist
+    /// * `true` - If number is even
+    /// * `false` - If number is odd
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// let calc = Calculator::new();
+    /// assert!(calc.is_even(4));
+    /// assert!(!calc.is_even(5));
+    /// ```
     // TODO: Implement this method
-    pub fn get_balance(&self, id: &AccountId) -> Result<u64, AccountError> {
+    pub fn is_even(&self, n: u32) -> bool {
         // IMPLEMENT:
-        // 1. Get account using get_account
-        // 2. Return Ok(account.balance) or Err(AccountNotFound)
-        todo!()
-    }
-}
-```
-
-#### **4. Transfer Funds (`transfer`):**
-```rust
-impl AccountManager {
-    /// Transfers funds between two accounts
-    /// 
-    /// # Arguments
-    /// 
-    /// * `from` - Source account ID
-    /// * `to` - Destination account ID  
-    /// * `amount` - Amount to transfer
-    /// 
-    /// # Returns
-    /// 
-    /// * `Ok(())` - Transfer successful
-    /// * `Err(AccountError)` - Transfer failed
-    // TODO: Implement this method
-    pub fn transfer(&mut self, from: &AccountId, to: &AccountId, amount: u64) -> Result<(), AccountError> {
-        // IMPLEMENT:
-        // 1. Check if amount is 0 (return InvalidAmount)
-        // 2. Check if both accounts exist (return AccountNotFound)
-        // 3. Check if from account is frozen (return AccountFrozen)
-        // 4. Check if from account has sufficient balance (return InsufficientBalance)
-        // 5. Update balances: subtract from source, add to destination
-        // 6. Return Ok(())
-        todo!()
-    }
-}
-```
-
-#### **5. Freeze Account (`freeze_account`):**
-```rust
-impl AccountManager {
-    /// Freezes an account, preventing transfers from it
-    /// 
-    /// # Arguments
-    /// 
-    /// * `id` - The account identifier to freeze
-    /// 
-    /// # Returns
-    /// 
-    /// * `Ok(())` - Account frozen successfully  
-    /// * `Err(AccountNotFound)` - Account doesn't exist
-    // TODO: Implement this method
-    pub fn freeze_account(&mut self, id: &AccountId) -> Result<(), AccountError> {
-        // IMPLEMENT:
-        // 1. Get mutable reference to account
-        // 2. Set is_frozen to true
-        // 3. Return Ok(()) or AccountNotFound error
+        // Return true if n % 2 == 0
         todo!()
     }
 }
@@ -262,190 +160,86 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_account_success() {
+    fn test_add_success() {
         // TODO: Implement this test
-        // 1. Create AccountManager
-        // 2. Create account with valid balance
-        // 3. Verify account was created correctly
-        // 4. Check total supply updated
+        // 1. Create calculator
+        // 2. Test normal addition
+        // 3. Verify result is correct
         todo!()
     }
 
     #[test]
-    fn test_create_account_invalid_balance() {
+    fn test_add_overflow() {
         // TODO: Implement this test
-        // 1. Try to create account with 0 balance
-        // 2. Verify it returns InvalidAmount error
+        // 1. Try to add numbers that would overflow
+        // 2. Verify it returns Overflow error
         todo!()
     }
 
     #[test]
-    fn test_get_balance_success() {
+    fn test_divide_success() {
         // TODO: Implement this test
-        // 1. Create account with known balance
-        // 2. Get balance and verify it matches
+        // 1. Test normal division
+        // 2. Verify result is correct
         todo!()
     }
 
     #[test]
-    fn test_get_balance_account_not_found() {
-        // TODO: Implement this test  
-        // 1. Try to get balance of non-existent account
-        // 2. Verify it returns AccountNotFound error
+    fn test_divide_by_zero() {
+        // TODO: Implement this test
+        // 1. Try to divide by zero
+        // 2. Verify it returns DivisionByZero error
         todo!()
     }
 
     #[test]
-    fn test_transfer_success() {
+    fn test_is_even() {
         // TODO: Implement this test
-        // 1. Create two accounts with balances
-        // 2. Transfer amount between them
-        // 3. Verify balances updated correctly
-        // 4. Verify total supply unchanged
-        todo!()
-    }
-
-    #[test]
-    fn test_transfer_insufficient_balance() {
-        // TODO: Implement this test
-        // 1. Create account with low balance
-        // 2. Try to transfer more than available
-        // 3. Verify it returns InsufficientBalance error
-        todo!()
-    }
-
-    #[test]
-    fn test_freeze_account() {
-        // TODO: Implement this test
-        // 1. Create account
-        // 2. Freeze it
-        // 3. Try to transfer from frozen account
-        // 4. Verify transfer fails with AccountFrozen error
-        todo!()
-    }
-
-    #[test]
-    fn test_edge_cases() {
-        // TODO: Implement this test
-        // Test various edge cases:
-        // - Transfer to same account
-        // - Transfer 0 amount
-        // - Very large balances
+        // 1. Test with even numbers (0, 2, 4)
+        // 2. Test with odd numbers (1, 3, 5)
+        // 3. Verify results are correct
         todo!()
     }
 }
 ```
 
-### Testing Patterns
-
-#### **1. Arrange-Act-Assert Pattern:**
-```rust
-#[test]
-fn test_example() {
-    // Arrange
-    let mut manager = AccountManager::new();
-    let alice = AccountId("alice".to_string());
-    
-    // Act
-    let result = manager.create_account(alice.clone(), 1000);
-    
-    // Assert
-    assert!(result.is_ok());
-    assert_eq!(manager.get_balance(&alice).unwrap(), 1000);
-}
-```
-
-#### **2. Error Testing:**
-```rust
-#[test]
-fn test_error_conditions() {
-    let manager = AccountManager::new();
-    let non_existent = AccountId("does_not_exist".to_string());
-    
-    let result = manager.get_balance(&non_existent);
-    assert_eq!(result, Err(AccountError::AccountNotFound(non_existent)));
-}
-```
-
-#### **3. Test Helper Functions:**
-```rust
-fn create_test_accounts() -> (AccountManager, AccountId, AccountId) {
-    let mut manager = AccountManager::new();
-    let alice = AccountId("alice".to_string());
-    let bob = AccountId("bob".to_string());
-    
-    manager.create_account(alice.clone(), 1000).unwrap();
-    manager.create_account(bob.clone(), 500).unwrap();
-    
-    (manager, alice, bob)
-}
-```
-
-### Example Usage
+## Expected Usage
 
 ```rust
 fn main() {
-    let mut manager = AccountManager::new();
+    let calc = Calculator::new();
     
-    // Create accounts
-    let alice = AccountId("alice".to_string());
-    let bob = AccountId("bob".to_string());
+    // Test addition
+    match calc.add(5, 3) {
+        Ok(result) => println!("5 + 3 = {}", result),
+        Err(e) => println!("Error: {:?}", e),
+    }
     
-    manager.create_account(alice.clone(), 1000).unwrap();
-    manager.create_account(bob.clone(), 500).unwrap();
+    // Test division
+    match calc.divide(10, 2) {
+        Ok(result) => println!("10 / 2 = {}", result),
+        Err(e) => println!("Error: {:?}", e),
+    }
     
-    println!("Alice balance: {}", manager.get_balance(&alice).unwrap());
-    println!("Bob balance: {}", manager.get_balance(&bob).unwrap());
-    
-    // Transfer funds
-    manager.transfer(&alice, &bob, 200).unwrap();
-    
-    println!("After transfer:");
-    println!("Alice balance: {}", manager.get_balance(&alice).unwrap());
-    println!("Bob balance: {}", manager.get_balance(&bob).unwrap());
-    
-    // Test freezing
-    manager.freeze_account(&alice).unwrap();
-    let freeze_result = manager.transfer(&alice, &bob, 100);
-    println!("Transfer from frozen account: {:?}", freeze_result);
+    // Test even/odd
+    println!("4 is even: {}", calc.is_even(4));
+    println!("5 is even: {}", calc.is_even(5));
 }
 ```
 
-### Expected Output
+## Key Learning Points
 
-A well-tested account management system that:
-- Demonstrates comprehensive unit testing patterns
-- Includes clear documentation with examples
-- Tests both success and error conditions
-- Shows proper error handling and validation
-- Uses descriptive test names and clear assertions
+- **Unit testing**: Use `#[test]` for testing functions
+- **Documentation**: Use `///` comments with examples
+- **Error testing**: Verify error conditions work correctly
+- **Assertions**: Use `assert_eq!`, `assert!` for verification
 
-### Theoretical Context
+## Substrate Connection
 
-**Testing Fundamentals:**
-- **Unit Tests**: Test individual functions in isolation
-- **Test Organization**: Group related tests in modules
-- **Assertions**: Verify expected behavior with `assert!` macros
-- **Error Testing**: Verify error conditions are handled correctly
+Substrate development requires:
+- **Comprehensive tests** for all pallet functions
+- **Clear documentation** with working examples
+- **Error handling** for all edge cases
+- **Test-driven development** practices
 
-**Documentation Patterns:**
-- **Doc Comments**: Use `///` for public API documentation
-- **Examples**: Include working code examples in docs
-- **Arguments/Returns**: Document parameters and return values
-- **Error Conditions**: Document when errors can occur
-
-**Key Testing Principles:**
-1. **Arrange-Act-Assert**: Structure tests clearly
-2. **Single Responsibility**: One test per behavior
-3. **Descriptive Names**: Test names explain what is being tested
-4. **Edge Cases**: Test boundary conditions and error paths
-
-**Substrate Connection:**
-- All Substrate pallets include extensive unit tests
-- Documentation with examples for all public APIs
-- Test-driven development for runtime functionality
-- Error handling patterns for blockchain operations
-
-This challenge teaches essential testing and documentation patterns needed for professional Substrate development.
-
---- 
+This simplified version teaches the essential testing and documentation patterns used in Substrate!

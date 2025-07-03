@@ -118,7 +118,7 @@ impl AssetPallet {
 
 #[cfg(test)]
 mod tests {
-    use crate::advanced::challenge_11::{AccountId, AssetId, AssetPallet, ChainId, Error};
+    use crate::advanced::challenge_11::{AssetId, AssetPallet, ChainId, Error};
 
     #[test]
     pub fn initiate_transfer_test() {

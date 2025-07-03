@@ -225,31 +225,31 @@ mod tests {
         let _ = pool.submit_transaction(tx2_bob.clone());
 
         {
-            let tx1_pool_result = pool.get_transaction(&tx1.hash);
-            let tx2_pool_result = pool.get_transaction(&tx2.hash);
-            let tx1_bob_pool_result = pool.get_transaction(&tx1_bob.hash);
-            let tx2_bob_pool_result = pool.get_transaction(&tx2_bob.hash);
-            assert!(tx1_pool_result.is_some());
-            assert!(tx2_pool_result.is_some());
-            assert!(tx1_bob_pool_result.is_some());
-            assert!(tx2_bob_pool_result.is_some());
-            let tx_pool = tx1_pool_result.unwrap();
-            let tx2_pool = tx2_pool_result.unwrap();
-            let tx_bob_pool = tx1_pool_result.unwrap();
-            let tx2_bob_pool = tx2_pool_result.unwrap();
-            assert_eq!(tx_pool.status, PoolStatus::Ready);
-            assert_eq!(tx2_pool.status.clone(), PoolStatus::Pending);
-            assert_eq!(tx_bob_pool.status, PoolStatus::Ready);
-            assert_eq!(tx2_bob_pool.status.clone(), PoolStatus::Pending);
+            let tx1_pool_result = pool.get_transaction(&tx1.hash).unwrap();
+            let tx2_pool_result = pool.get_transaction(&tx2.hash).unwrap();
+            let tx1_bob_pool_result = pool.get_transaction(&tx1_bob.hash).unwrap();
+            let tx2_bob_pool_result = pool.get_transaction(&tx2_bob.hash).unwrap();
+            
+            assert_eq!(tx1_pool_result.status, PoolStatus::Ready);
+            assert_eq!(tx2_pool_result.status, PoolStatus::Pending);
+            assert_eq!(tx1_bob_pool_result.status, PoolStatus::Ready);
+            assert_eq!(tx2_bob_pool_result.status, PoolStatus::Pending);
         }
 
-        let block = pool.build_block(1);
+        // Build a block that can include both ready transactions
+        let block = pool.build_block(2);
+        assert_eq!(block.len(), 2);
+
         let tx2_pool_after_opt = pool.get_transaction(&tx2.hash);
         let tx2_bob_pool_after_opt = pool.get_transaction(&tx2_bob.hash);
+
         assert!(tx2_pool_after_opt.is_some());
         assert!(tx2_bob_pool_after_opt.is_some());
+
         let tx2_pool_after = tx2_pool_after_opt.unwrap();
-        let tx2_bob_pool_after = tx2_pool_after_opt.unwrap();
+        let tx2_bob_pool_after = tx2_bob_pool_after_opt.unwrap();
+        
+        // Now that both tx1 and tx1_bob are included, tx2 and tx2_bob should be ready
         assert_eq!(tx2_pool_after.status, PoolStatus::Ready);
         assert_eq!(tx2_bob_pool_after.status, PoolStatus::Ready);
     }

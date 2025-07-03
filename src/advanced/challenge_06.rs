@@ -377,8 +377,6 @@ mod tests {
     }
 
     #[test]
-    // Exemplo de teste refatorado
-    #[test]
     fn cleanup_old_intervals_test() {
         let mut validator = create_validator();
         assert!(validator.accept_transaction(&UnsignedTransaction::new("tx1", 1, 1)).is_ok());

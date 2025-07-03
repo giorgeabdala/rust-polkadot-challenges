@@ -1,4 +1,3 @@
-use std::cmp::{Ordering, PartialOrd};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -293,7 +292,6 @@ mod tests {
         assert!(validate_result.is_ok());
     }
 
-    #[test]
     #[test]
     fn test_missing_required_inherent() {
         let mut constructor = BlockConstructor::new(1);
