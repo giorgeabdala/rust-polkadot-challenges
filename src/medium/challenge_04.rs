@@ -321,8 +321,8 @@ mod tests {
         let transactions = vec![tx, tx1, tx3];
         let batch_result = processor.batch_process(transactions);
         assert_eq!(batch_result.len(), 3);
-        assert!(batch_result[0].is_ok());   // Primeira passou
-        assert!(batch_result[1].is_err());  // Segunda falhou
+        assert!(batch_result[0].is_ok());   // First passed
+        assert!(batch_result[1].is_err());  // Second failed
         assert!(batch_result[2].is_err());
     }
 }

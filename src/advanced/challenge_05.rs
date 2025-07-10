@@ -29,12 +29,12 @@ impl Origin {
         }
     }
 
-    /// Verifica se a origem é root
+    /// Check if the origin is root
     pub fn is_root(&self) -> bool {
         matches!(self, Origin::Root)
     }
 
-    /// Obtém a origem customizada, se presente
+    /// Get the custom origin, if present
     pub fn as_custom(&self) -> Option<&CustomOrigin> {
         match self {
             Origin::Custom(custom) => Some(custom),

@@ -100,7 +100,7 @@ mod tests {
         library.add_book(Book::new(title.clone()));
 
         let book_ref1 = library.find_book(&title);
-        let book_ref2 = library.find_book(&title); // Outro empréstimo imutável
+        let book_ref2 = library.find_book(&title); // Another immutable borrow
 
         assert!(book_ref1.is_some());
         assert!(book_ref2.is_some());

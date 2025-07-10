@@ -79,7 +79,7 @@ mod tests {
         assert_eq!(transferred_player.score, 0);
 
         // error[E0382]: borrow of moved value: `player`
-        // println!("Nome do player original: {}", player.name);
+        // println!("Original player name: {}", player.name);
     }
     #[test]
     fn clone_player_test() {

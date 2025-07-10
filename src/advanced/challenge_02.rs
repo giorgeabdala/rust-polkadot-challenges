@@ -25,7 +25,7 @@ pub trait WeightInfo {
     fn batch_operation(n: u32) -> Weight;
 }
 
-/// Resultados de benchmark simulados para diferentes operações
+/// Simulated benchmark results for different operations
 pub struct BenchmarkWeights;
 
 impl WeightInfo for BenchmarkWeights {

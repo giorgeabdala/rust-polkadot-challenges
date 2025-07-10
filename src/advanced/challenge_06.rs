@@ -239,17 +239,17 @@ impl <T: std::fmt::Debug + Clone> UnsignedPallet<T> {
         self.data_store.get(&nonce)
     }
 
-    /// Obtém todos os dados armazenados
+    /// Get all stored data
     pub fn get_all_data(&self) -> Vec<(u64, &T)> {
         self.data_store.iter().map(|(nonce, data)| (*nonce, data)).collect()
     }
 
-    /// Obtém o histórico de transações
+    /// Get the transaction history
     pub fn get_transaction_history(&self) -> &[(u64, u64)] {
         &self.transaction_history
     }
 
-    /// Obtém as estatísticas do validador
+    /// Get the validator statistics
     pub fn get_validator_stats(&self) -> (u64, u32, u32) {
         self.validator.get_interval_stats()
     }

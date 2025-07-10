@@ -39,7 +39,7 @@ impl Message {
     }
 }
 
-// TODO: Implemente esta função
+// TODO: Implement this function
 fn spawn_workers() -> Vec<thread::JoinHandle<()>> {
     let mut handles: Vec<thread::JoinHandle<()>> = Vec::new();
     for id in 0..3 {

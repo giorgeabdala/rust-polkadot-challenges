@@ -237,11 +237,11 @@ mod tests {
 // Exemplo de uso demonstrando o sistema funcionando
 #[allow(dead_code)]
 fn exemplo_de_uso() {
-    println!("=== Demonstração do Off-Chain Worker ===");
+    println!("=== Off-Chain Worker Demonstration ===");
     
     let mut worker = OffChainWorker::new();
     
-    // Adicionar fontes de dados
+    // Add data sources
     let source1 = Box::new(MockDataSource::new("CoinGecko".to_string()));
     let source2 = Box::new(MockDataSource::new("Binance".to_string()));
     let source3 = Box::new(MockDataSource::new("Kraken".to_string()).with_failure(true));
@@ -250,32 +250,32 @@ fn exemplo_de_uso() {
     worker.add_source(source2);
     worker.add_source(source3);
     
-    println!("Fontes adicionadas: 3 (1 com falha simulada)");
+    println!("Sources added: 3 (1 with simulated failure)");
     
-    // Primeira execução
+    // First execution
     match worker.execute() {
         Ok(successful_fetches) => {
-            println!("✅ Primeira execução:");
-            println!("  - Fetches bem-sucedidos: {}", successful_fetches);
-            println!("  - Total de execuções: {}", worker.executions());
-            println!("  - Itens no cache: {}", worker.cached_items());
+            println!("✅ First execution:");
+            println!("  - Successful fetches: {}", successful_fetches);
+            println!("  - Total executions: {}", worker.executions());
+            println!("  - Cached items: {}", worker.cached_items());
         }
-        Err(e) => println!("❌ Falha na primeira execução: {}", e),
+        Err(e) => println!("❌ First execution failure: {}", e),
     }
     
-    // Segunda execução
+    // Second execution
     match worker.execute() {
         Ok(successful_fetches) => {
-            println!("✅ Segunda execução:");
-            println!("  - Fetches bem-sucedidos: {}", successful_fetches);
-            println!("  - Total de execuções: {}", worker.executions());
-            println!("  - Itens no cache: {}", worker.cached_items());
+            println!("✅ Second execution:");
+            println!("  - Successful fetches: {}", successful_fetches);
+            println!("  - Total executions: {}", worker.executions());
+            println!("  - Cached items: {}", worker.cached_items());
         }
-        Err(e) => println!("❌ Falha na segunda execução: {}", e),
+        Err(e) => println!("❌ Second execution failure: {}", e),
     }
     
-    // Exibir alguns dados coletados
-    println!("\n📊 Dados coletados:");
+    // Display some collected data
+    println!("\n📊 Collected data:");
     if let Some(data) = worker.get_data("CoinGecko_1") {
         println!("  - {}: {} (timestamp: {})", data.id, data.value, data.timestamp);
     }
@@ -283,9 +283,9 @@ fn exemplo_de_uso() {
         println!("  - {}: {} (timestamp: {})", data.id, data.value, data.timestamp);
     }
     
-    println!("\n🎯 Sistema demonstra:");
-    println!("  ✓ Coleta de dados de múltiplas fontes");
-    println!("  ✓ Resistência a falhas (continua mesmo com fonte falhando)");
-    println!("  ✓ Cache com IDs únicos (sem sobreposição)");
+    println!("\n🎯 System demonstrates:");
+    println!("  ✓ Data collection from multiple sources");
+    println!("  ✓ Fault resistance (continues even with source failing)");
+    println!("  ✓ Cache with unique IDs (no overlap)");
     println!("  ✓ Rastreamento de execuções");
 }
