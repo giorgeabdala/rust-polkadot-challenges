@@ -67,7 +67,7 @@ mod tests {
             // We clone the `counter` struct itself. Since it derives `Clone`,
             // this clones the Arc internally, increasing its reference count.
             let counter_clone = counter.clone();
-            let handle = thread::spawn(move || {
+            let handle = thread::spawn(move || { // move: transfer ownership to thread
                 for _ in 0..10 {
                     // Now, we call the `increment` method directly.
                     counter_clone.increment();

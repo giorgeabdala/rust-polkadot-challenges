@@ -20,7 +20,7 @@ impl<T: Config> PalletStorageSim<T> {
             current_version: StorageVersion::V1SimpleU32,
             storage_v1_value: None,
             storage_v2_value: None,
-            _phantom: Default::default(),
+            _phantom: Default::default(), // PhantomData: marker for unused generic parameter
         }
     }
 

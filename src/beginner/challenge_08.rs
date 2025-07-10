@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+// Lifetime annotation: ensures return value lives as long as both inputs
 fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
     if x.len() > y.len() { x } else { y }
 }
@@ -10,8 +11,9 @@ fn first_word<'a>(s: &'a str) -> &'a str {
 }
 
 #[derive(PartialEq)]
+// Struct with lifetime parameter - holds reference to external data
 struct TextAnalyzer<'a> {
-    text: &'a str,
+    text: &'a str, // This reference must be valid for lifetime 'a
 }
 
 impl<'a> TextAnalyzer<'a> {

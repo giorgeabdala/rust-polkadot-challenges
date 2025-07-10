@@ -49,9 +49,11 @@ impl Storage {
 
 }
 
+// Weight: Substrate's computational cost measurement unit
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Weight(pub u64);
 
+// WeightInfo: provides benchmarked weights for dispatchable functions
 pub trait WeightInfo {
     fn increment() -> Weight;
     fn decrement() -> Weight;

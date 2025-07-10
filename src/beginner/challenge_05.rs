@@ -33,7 +33,7 @@ fn calculate_average(numbers: &[&str]) -> Result<i32, SimpleError> {
     if numbers.is_empty() { return Err(SimpleError::InvalidInput); }
     let mut sum = 0;
     for &num_str in numbers {
-        let num = parse_positive(num_str)?;
+        let num = parse_positive(num_str)?; // ? operator: early return on Error
         sum += num;
     }
     safe_divide(sum, numbers.len() as i32)

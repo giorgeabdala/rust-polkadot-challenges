@@ -1,3 +1,4 @@
+// Trait: shared behavior contract that types can implement
 trait Animal {
     fn speak(&self);
 }
@@ -22,9 +23,10 @@ struct Handler<T> {
     animal: T,
 }
 
+// Generic impl with trait bound - T must implement Animal
 impl<T> Handler<T> 
 where
-    T: Animal,
+    T: Animal, // Trait bound: constrains what types can be used
 {
     fn new(animal: T) -> Self {
         Handler { animal }

@@ -79,6 +79,7 @@ pub mod balances {
         core::ops::Sub<Output = Self::Balance>;
     }
 
+    // Event system: emitted to off-chain consumers for state change notifications
     #[derive(Clone, Debug, PartialEq)]
     pub enum Event<T: Config> {
         Transfer {

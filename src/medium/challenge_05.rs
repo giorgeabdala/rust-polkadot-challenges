@@ -56,18 +56,19 @@ impl BlockchainClient {
     }
 
 
+    // Concurrent execution: all futures run simultaneously, not sequentially
     async fn fetch_blocks_concurrent(&self, numbers: Vec<u64>) -> Vec<Result<Block, NetworkError>> {
         let futures: Vec<_> = numbers.into_iter()
-            .map(|n| self.fetch_block(n))
+            .map(|n| self.fetch_block(n)) // Create futures without awaiting
             .collect();
-        futures::future::join_all(futures).await
+        futures::future::join_all(futures).await // Wait for all to complete
     }
     
     async fn fetch_with_timeout(&self, number: u64) -> Result<Block, NetworkError> {
        timeout(Duration::from_millis(self.timeout_ms),
        self.fetch_block(number)
        ).await
-           .map_err(|_| NetworkError::new("Timeout"))?
+           .map_err(|_| NetworkError::new("Timeout"))? // Convert timeout error to domain error
     }
 }
 

@@ -10,20 +10,20 @@ enum Event {
     UserUpdated { name: String, new_age: u32 },
 }
 
-// Getter Macro
+// Declarative macro: code generation at compile time
 macro_rules! create_getter {
-    ($field:ident, $field_type:ty) => {
+    ($field:ident, $field_type:ty) => { // Pattern matching on tokens
         fn $field(&self) -> &$field_type {
-            &self.$field
+            &self.$field // Token substitution
         }
     };
 }
 
-// Event Builder Macro
+// Macro with repetition: handles variable number of arguments
 macro_rules! event {
-    ($variant:ident { $($field:ident: $value:expr),* }) => {
+    ($variant:ident { $($field:ident: $value:expr),* }) => { // * = zero or more
         Event::$variant {
-            $($field: $value,)*
+            $($field: $value,)* // Expand each field:value pair
         }
     };
 }

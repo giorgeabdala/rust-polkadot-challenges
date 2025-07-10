@@ -34,13 +34,15 @@ impl fmt::Display for Player {
     }
 }
 
+// Takes ownership - caller loses access to original value
 fn transfer_player(player: Player) -> Player {
-    player
+    player // Move semantics: ownership transferred, no copy
 }
 
+// Borrows instead of taking ownership - original remains accessible
 fn clone_player(player: &Player) -> Player {
-    let mut new_player = Player::new(player.name.clone());
-    new_player.score = player.score;
+    let mut new_player = Player::new(player.name.clone()); // String needs explicit clone
+    new_player.score = player.score; // u32 implements Copy trait
     new_player
 }
 

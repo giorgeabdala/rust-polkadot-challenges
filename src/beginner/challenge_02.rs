@@ -21,12 +21,14 @@ impl Library {
         Library{books: Vec::new()}
     }
     
+    // &mut self: exclusive access needed to modify internal state
     fn add_book(&mut self, book: Book) {
         self.books.push(book);
     }
     
+    // &self: shared access for read-only operations
     fn find_book(&self, title: &str) -> Option<&Book> {
-       self.books.iter().find(|book| book.title == title)
+       self.books.iter().find(|book| book.title == title) // Returns borrowed reference
     }
     
     fn borrow_book(&mut self, title: &str) -> bool {

@@ -12,6 +12,7 @@ enum CodecError {
     InvalidData(String),
 }
 
+// SCALE codec: Substrate's binary encoding format for efficient on-chain storage
 #[derive(Debug, PartialEq)]
 struct Account {
     id: u32,
@@ -26,6 +27,7 @@ enum TransactionType {
     Vote { proposal_id: u32 },
 }
 
+// Manual SCALE implementation - normally use derive macros in production
 impl Encode for u32 {
     fn encode(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()

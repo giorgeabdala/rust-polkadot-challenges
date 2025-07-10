@@ -96,7 +96,7 @@ impl RoleManager {
 }
 
 
-/// Validates origins against permission requirements
+/// Origin filtering: Substrate pattern for call-level authorization
 pub struct OriginFilter {
     role_manager: RoleManager,
 }
