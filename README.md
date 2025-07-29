@@ -2,9 +2,9 @@
 
 A comprehensive Rust course focused on Polkadot SDK/Substrate development, structured in three progressive levels with 29 total challenges.
 
-## 📚 Course Structure
+## Course Structure
 
-### 🟢 **Beginner Level** (9 challenges - 4h15min)
+### **Beginner Level** (9 challenges - 4h15min)
 Essential Rust fundamentals:
 - Environment Setup and Cargo Basics
 - Ownership and Borrowing
@@ -13,26 +13,24 @@ Essential Rust fundamentals:
 - Basic Error Handling with Propagation
 - Basic Collections
 
-**Dependencies:** Standard library only ✅
-
-### 🟡 **Medium Level** (10 challenges - 6h55min)
+### **Medium Level** (10 challenges - 6h55min)
 Intermediate concepts for Substrate:
 - Advanced Collections
 - Generics and Traits
 - Explicit Lifetimes
 - Advanced Error Handling
-- Async Programming ⚠️
+- Async Programming 
 - SCALE Codec
 - Macros and Performance Benchmarking
 - Smart Pointers
 - Concurrency
-- Testing and Documentation ⚠️
+- Testing and Documentation 
 
 **Special dependencies:**
 - **Challenge 5 (Async):** `tokio`, `futures`
 - **Challenge 10 (Benchmarks):** `criterion` (dev-dependency)
 
-### 🔴 **Advanced Level** (12 challenges - 8h)
+### **Advanced Level** (12 challenges - 8h)
 Advanced Polkadot SDK concepts (reorganized for optimal learning flow):
 - **Foundation:** Pallet Architecture and Weight System
 - **Storage:** Migration Patterns and Persistence  
@@ -43,7 +41,7 @@ Advanced Polkadot SDK concepts (reorganized for optimal learning flow):
 
 **Dependencies:** Some challenges use `serde` and `serde_json` for serialization
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Clone the repository
 ```bash
@@ -98,59 +96,50 @@ cargo test
 cargo check
 ```
 
-## 📋 Dependencies by Level
+##  Dependencies by Level
 
 ### Beginner (0 external dependencies)
-- ✅ All challenges use only `std`
+-  All challenges use only `std`
 
 ### Medium (2 challenges with dependencies)
-- ✅ Challenges 1-4, 6-9: only `std`
-- ⚠️ Challenge 5: `tokio`, `futures`
-- ⚠️ Challenge 10: `criterion` (benchmarks only)
+-  Challenges 1-4, 6-9: only `std`
+-  Challenge 5: `tokio`, `futures`
+-  Challenge 10: `criterion` (benchmarks only)
 
 ### Advanced (2 challenges with dependencies)
-- ✅ Challenges 1-2, 4-6, 8-12: only `std`
-- ⚠️ Challenge 3: `serde`, `serde_json` (for JSON-RPC)
-- ⚠️ Challenge 7: `serde`, `bincode` (for inherent data)
+-  Challenges 1-2, 4-6, 8-12: only `std`
+-  Challenge 3: `serde`, `serde_json` (for JSON-RPC)
+-  Challenge 7: `serde`, `bincode` (for inherent data)
 
-## 🎯 Learning Objectives
+## Learning Objectives
 
 This course prepares you for:
-- ✅ Complete Rust development environment setup
-- ✅ Safe and efficient Rust development
-- ✅ Deep understanding of Polkadot SDK
-- ✅ Creating Substrate pallets
-- ✅ Blockchain runtime development
-- ✅ Consensus and networking implementation
-- ✅ Cross-chain communication (XCM)
+-  Complete Rust development environment setup
+-  Safe and efficient Rust development
+-  Deep understanding of Polkadot SDK
+-  Creating Substrate pallets
+-  Blockchain runtime development
+-  Consensus and networking implementation
+-  Cross-chain communication (XCM)
 
-## 📖 How to Use This Course
+## How to Use This Course
 
 1. **Follow the order:** Challenges are progressive
 2. **Read completely:** Each challenge has context and examples
 3. **Implement first:** Try to solve before looking at solutions
 4. **Always test:** Use `cargo test` and `cargo check`
-5. **Explore bonuses:** ⚠️ Optional advanced concepts - only for deeper exploration
 
-⏱️ **Time Estimates:** All estimated times include only the core requirements and basic testing. Bonus challenges (marked with ⚠️) are optional advanced concepts that require additional time and are designed for students who want deeper exploration of specific topics.
-
-**📊 Total Course Time:**
-- **Core Requirements Only:** 19h10min (4h15min + 6h55min + 8h)
-- **With All Bonus Challenges:** ~25h30min (+30-35% additional time)
-- **Recommended Pace:** 2-3 challenges per week for steady progress
-
-**🎯 Bonus Challenge Philosophy:** We've streamlined bonus challenges to focus only on concepts that are either:
 - Essential patterns used in Substrate development
 - Advanced exploration for students seeking deeper understanding
 - Previously, many bonus challenges were simply "more of the same" - these have been removed to reduce cognitive load
 
-## 🔧 Requirements
+##  Requirements
 
 - **Rust:** 1.70+ (recommended: latest version)
 - **Cargo:** Included with Rust
 - **Editor:** VS Code with rust-analyzer (recommended)
 
-## 🚨 Troubleshooting Common Issues
+## Troubleshooting Common Issues
 
 ### Installation Problems
 
@@ -267,18 +256,7 @@ rustup update nightly
 4. **Use `cargo clippy`**: Often suggests better ways to write code
 5. **Community**: Rust Discord, Reddit r/rust, Substrate Stack Exchange
 
-## 📝 Challenge Structure
-
-Each challenge includes:
-- 🎯 **Learning objectives**
-- 📚 **Theoretical background**
-- 💻 **Practical requirements**
-- ✅ **Usage examples**
-- 🧪 **Testing section**
-- 🔗 **Substrate connection**
-- 🏆 **Bonus challenges**
-
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please:
 1. Fork the repository
@@ -286,11 +264,11 @@ Contributions are welcome! Please:
 3. Commit your changes
 4. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is under the MIT license. See the LICENSE file for details.
 
-## 🆘 Support
+## Support
 
 If you encounter problems:
 1. Check that you have the correct Rust version
@@ -302,4 +280,4 @@ If you encounter problems:
 
 **Total estimated time:** 18h20min
 **Total challenges:** 26
-**Complete preparation for Polkadot SDK development** 🚀
+**Complete preparation for Polkadot SDK development** 
