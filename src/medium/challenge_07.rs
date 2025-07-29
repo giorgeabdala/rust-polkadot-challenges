@@ -20,6 +20,7 @@ macro_rules! create_getter {
 }
 
 // Macro with repetition: handles variable number of arguments
+#[cfg(test)]
 macro_rules! event {
     ($variant:ident { $($field:ident: $value:expr),* }) => { // * = zero or more
         Event::$variant {

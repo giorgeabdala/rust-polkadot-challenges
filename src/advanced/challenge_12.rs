@@ -5,7 +5,7 @@ pub type Hash = [u8; 32];
 pub type Balance = u128;
 
 pub mod system {
-    use super::*;
+    
     use std::collections::HashMap;
 
     pub trait Config {
@@ -278,9 +278,9 @@ impl RuntimeConfig for TestRuntimeConfig {}
 #[cfg(test)]
 mod tests {
     use crate::advanced::challenge_12::balances::{Error, Event};
-    use crate::advanced::challenge_12::RuntimeEvent::System;
-    use crate::advanced::challenge_12::system::Event::ExtrinsicSuccess;
-    use crate::advanced::challenge_12::system::Pallet;
+    
+    
+    
     use super::*;
 
     type TestRuntime = Runtime<TestRuntimeConfig>;
